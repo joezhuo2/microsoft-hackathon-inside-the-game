@@ -1,4 +1,4 @@
-"""Build and push the MCP server image without Docker or ACR Tasks.
+"""Build and push the MCP server or replay server image without Docker or ACR Tasks.
 
 Azure for Students subscriptions block ACR Tasks, so this appends one layer (Linux
 wheels from build/image/site, the package source and the served tables) onto a base
@@ -21,6 +21,10 @@ import httpx
 ROOT = Path(__file__).resolve().parents[1]
 TABLES = ["events", "key_moments", "match_rhythm", "player_tags", "player_match_intel"]
 INDEX_TYPES = {"application/vnd.oci.image.index.v1+json", "application/vnd.docker.distribution.manifest.list.v2+json"}
+APPS = {
+    "mcp": {"site": "site", "module": "football_analytics.mcp_server"},
+    "replay": {"site": "site-replay", "module": "football_analytics.replay_server"},
+}
 ACCEPT = ", ".join(sorted(INDEX_TYPES | {"application/vnd.oci.image.manifest.v1+json", "application/vnd.docker.distribution.manifest.v2+json"}))
 
 
@@ -35,7 +39,7 @@ def _token(login_server: str, registry: str, repository: str, base_repository: s
     return response.json()["access_token"]
 
 
-def _layer(work: Path) -> tuple[Path, str, str, int]:
+def _layer(work: Path, app: str) -> tuple[Path, str, str, int]:
     def clean(info: tarfile.TarInfo) -> tarfile.TarInfo | None:
         if "__pycache__" in info.name or info.name.endswith(".pyc"):
             return None
@@ -43,16 +47,25 @@ def _layer(work: Path) -> tuple[Path, str, str, int]:
         info.uname = info.gname = "root"
         info.mtime = 0
         info.mode = 0o755 if info.isdir() else 0o644
+        if "enrich_cache" in info.name:
+            info.mode = 0o777 if info.isdir() else 0o666
         return info
 
     raw = work / "layer.tar"
     with tarfile.open(raw, "w", format=tarfile.PAX_FORMAT) as tar:
-        tar.add(ROOT / "build" / "image" / "site", "app/site", filter=clean)
+        tar.add(ROOT / "build" / "image" / APPS[app]["site"], "app/site", filter=clean)
         tar.add(ROOT / "src" / "football_analytics", "app/src/football_analytics", filter=clean)
         tar.add(ROOT / "data" / "roster.json", "app/data/roster.json", filter=clean)
         for folder in sorted((ROOT / "output").glob("games_*")):
             for table in TABLES:
                 tar.add(folder / f"{table}.csv", f"app/output/{folder.name}/{table}.csv", filter=clean)
+        if app == "replay":
+            for tracking in sorted((ROOT / "data").glob("gfootball_results_games_*.csv")):
+                tar.add(tracking, f"app/data/{tracking.name}", filter=clean)
+            tar.add(ROOT / "overlay" / "ui", "app/overlay/ui", filter=clean)
+            cache = ROOT / "build" / "enrich_cache"
+            cache.mkdir(parents=True, exist_ok=True)
+            tar.add(cache, "app/build/enrich_cache", filter=clean)
     diff_id = "sha256:" + hashlib.sha256(raw.read_bytes()).hexdigest()
     compressed = work / "layer.tar.gz"
     with raw.open("rb") as source, gzip.GzipFile(compressed, "wb", mtime=0) as target:
@@ -75,6 +88,7 @@ def _upload(client: httpx.Client, base: str, repository: str, digest: str, body:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--registry", required=True)
+    parser.add_argument("--app", choices=sorted(APPS), default="mcp")
     parser.add_argument("--repository", default="match-mcp")
     parser.add_argument("--tag", required=True)
     parser.add_argument("--base", default="python:3.13-slim")
@@ -100,12 +114,12 @@ def main() -> None:
             raise SystemExit(f"could not mount {layer['digest']}: {mounted.status_code}")
 
     with tempfile.TemporaryDirectory() as temp:
-        layer_path, diff_id, digest, size = _layer(Path(temp))
+        layer_path, diff_id, digest, size = _layer(Path(temp), args.app)
         _upload(client, base, args.repository, digest, layer_path.read_bytes())
 
     settings = config.setdefault("config", {})
     settings["Env"] = [item for item in settings.get("Env", []) if not item.startswith("PYTHONPATH=")] + ["PYTHONPATH=/app/site:/app/src", "HOST=0.0.0.0", "PORT=8000", "PYTHONUNBUFFERED=1"]
-    settings.update({"Cmd": ["python", "-m", "football_analytics.mcp_server"], "WorkingDir": "/app", "User": "65534:65534", "ExposedPorts": {"8000/tcp": {}}})
+    settings.update({"Cmd": ["python", "-m", APPS[args.app]["module"]], "WorkingDir": "/app", "User": "65534:65534", "ExposedPorts": {"8000/tcp": {}}})
     config.pop("container_config", None)
     config["rootfs"]["diff_ids"].append(diff_id)
     config.setdefault("history", []).append({"created_by": "scripts/push_image.py: app layer"})
