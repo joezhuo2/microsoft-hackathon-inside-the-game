@@ -237,6 +237,9 @@ def respond(game_id: int, timestep: int, prefs: ViewerPreferences, stats: dict[s
     if action in ("why", "explain_more", "simpler"):
         lines = _event_lines(game_id, event_ids, timestep)[-limit:]
         observed = [text for _, text in lines] or ([headline] if moment else [])
+        if not observed and stats.get("possession"):
+            possession, shots = stats["possession"], stats.get("shots", [0, 0])
+            observed = [f"Possession so far {possession[0]}% {short[0]} to {possession[1]}% {short[1]}", f"Shots {shots[0]} to {shots[1]}"][:limit]
         trail += [TrailItem(kind="event", id=eid, label=text) for eid, text in lines]
         interpretation = why if action != "simpler" else why.split(":")[0].split(". ")[0].rstrip(".") + "."
         if action == "explain_more" and rhythm_line:
