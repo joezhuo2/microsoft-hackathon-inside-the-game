@@ -41,6 +41,7 @@ STAT_LABELS = {"shot_speed_kmh": ("shot speed", "km/h"), "distance_to_goal_line_
 
 log = logging.getLogger("replay")
 semaphore = asyncio.Semaphore(int(os.environ.get("ENRICH_CONCURRENCY", "3")))
+background: set[asyncio.Task] = set()
 
 
 @lru_cache(maxsize=1)
@@ -215,27 +216,25 @@ async def stream(request: Request) -> StreamingResponse:
 
         nonlocal position
         yield sse("start", {"game_id": game_id, "speed": speed, "profile": profile, "enrich": enrich_on, "steps": steps})
-        try:
-            while position < steps:
-                yield sse("frame", frame_at(game_id, int(position)))
-                while pending and pending[0]["start_timestep"] <= position:
-                    moment = pending.pop(0)
-                    yield sse("moment", instant_overlay(moment))
-                    if enrich_on and moment["importance"] >= ENRICH_MIN_IMPORTANCE:
-                        task = asyncio.create_task(run(moment))
-                        tasks.add(task)
-                        task.add_done_callback(tasks.discard)
-                while not queue.empty():
-                    yield sse(*queue.get_nowait())
-                await asyncio.sleep(TICK_S)
-                position += speed * TICK_S
-            yield sse("end", frame_at(game_id, steps - 1))
-            while tasks or not queue.empty():
-                event = await queue.get()
-                yield sse(*event)
-        finally:
-            for task in tasks:
-                task.cancel()
+        while position < steps:
+            yield sse("frame", frame_at(game_id, int(position)))
+            while pending and pending[0]["start_timestep"] <= position:
+                moment = pending.pop(0)
+                yield sse("moment", instant_overlay(moment))
+                if enrich_on and moment["importance"] >= ENRICH_MIN_IMPORTANCE:
+                    task = asyncio.create_task(run(moment))
+                    tasks.add(task)
+                    background.add(task)
+                    task.add_done_callback(tasks.discard)
+                    task.add_done_callback(background.discard)
+            while not queue.empty():
+                yield sse(*queue.get_nowait())
+            await asyncio.sleep(TICK_S)
+            position += speed * TICK_S
+        yield sse("end", frame_at(game_id, steps - 1))
+        while tasks or not queue.empty():
+            event = await queue.get()
+            yield sse(*event)
 
     return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
