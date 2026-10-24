@@ -384,7 +384,7 @@ async def feedback_route(request: Request) -> JSONResponse:
 routes = [Route("/api/meta", meta), Route("/api/stream", stream), Route("/api/ask", ask, methods=["POST"]), Route("/api/commentary", commentary_route, methods=["POST"]), Route("/api/feedback", feedback_route, methods=["POST"])]
 if UI_DIR.exists():
     routes.append(Mount("/", StaticFiles(directory=UI_DIR, html=True)))
-app = Starlette(routes=routes, middleware=[Middleware(CORSMiddleware, allow_origins=["http://tauri.localhost", "https://tauri.localhost", "tauri://localhost"], allow_methods=["GET", "POST"], allow_headers=["content-type"])])
+app = Starlette(routes=routes, middleware=[Middleware(CORSMiddleware, allow_origins=["http://tauri.localhost", "https://tauri.localhost", "tauri://localhost"], allow_methods=["GET", "POST"], allow_headers=["content-type"], allow_private_network=True)])
 
 
 def main() -> None:
