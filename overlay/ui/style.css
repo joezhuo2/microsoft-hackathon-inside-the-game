@@ -282,6 +282,8 @@ input[type="checkbox"] { accent-color: #fff; }
   filter: blur(8px);
 }
 #splash.show .splash-text { letter-spacing: 0.14em; filter: none; }
+#splash.sting { place-items: start center; padding-top: 14vh; }
+#splash.sting .splash-text { font-size: clamp(20px, 2.6vw, 38px); color: var(--accent); text-shadow: 0 0 22px var(--accent); -webkit-box-reflect: unset; }
 
 /* word reveal */
 .w { display: inline-block; white-space: pre; animation: word 0.55s var(--ease) both; animation-delay: calc(min(var(--i), 40) * 28ms); }

@@ -171,6 +171,7 @@ function routeCue(data) {
   const cue = data.cue;
   if (!cue) return showAlert(data);
   if (!visiblePriorities().includes(cue.priority)) return;
+  sting(cue);
   const compact = compactMode();
   state.recent.push(performance.now());
   if (cue.priority === "high" && !compact) {
@@ -305,10 +306,37 @@ function showEnriched(data) {
   }, 300);
 }
 
-function splash(text, ms) {
+const STINGS = { goal_threat: "Goal threat", momentum_swing: "Momentum shift", player_spotlight: "Player spotlight", control_index: "Tactical reset", chaos_index: "Tactical reset" };
+const STING_GAP_MS = 12000;
+let splashTimer = null;
+let lastSting = -STING_GAP_MS;
+
+function splash(text, ms, { accent = null, small = false } = {}) {
+  clearTimeout(splashTimer);
   $("splashText").textContent = text;
+  $("splash").classList.toggle("sting", small);
+  $("splash").style.setProperty("--accent", accent || "#fff");
   $("splash").classList.add("show");
-  setTimeout(() => $("splash").classList.remove("show"), ms);
+  splashTimer = setTimeout(() => $("splash").classList.remove("show"), ms);
+  return new Promise((resolve) => setTimeout(resolve, ms + 400));
+}
+
+function sting(cue) {
+  const text = STINGS[cue.theme];
+  const now = performance.now();
+  if (!text || state.splashBusy || now - lastSting < STING_GAP_MS) return;
+  lastSting = now;
+  splash(text, 1300, { accent: theme(cue.theme).accent, small: true });
+}
+
+async function sequence(steps) {
+  state.splashBusy = true;
+  for (const [text, ms] of steps) await splash(text, ms);
+  state.splashBusy = false;
+}
+
+function clockMinutes(clock) {
+  return Number.parseInt(clock, 10);
 }
 
 function applyFrame(f) {
@@ -325,6 +353,10 @@ function applyFrame(f) {
   });
   state.score = f.score;
   $("clock").textContent = f.clock;
+  if (!state.halfDone && clockMinutes(f.clock) >= 45) {
+    state.halfDone = true;
+    sequence([[`Half time ${f.score[0]}–${f.score[1]}`, 3000], ["Second half", 2200]]);
+  }
   if (f.rhythm) {
     $("rhythm").textContent = f.rhythm.rhythm;
     $("rhythm").className = `tag ${f.rhythm.rhythm}`;
@@ -352,7 +384,10 @@ function connect(fromStart = false) {
   source.addEventListener("start", (e) => {
     const s = JSON.parse(e.data);
     status(`Game ${s.game_id} live · ${s.enrich ? "AI analysis on" : "instant overlays only"}`);
-    if (fromStart) splash("Kick off", 2600);
+    if (fromStart) {
+      state.halfDone = false;
+      splash("Kick off", 2600);
+    }
   });
   source.addEventListener("frame", (e) => applyFrame(JSON.parse(e.data)));
   source.addEventListener("moment", (e) => {
@@ -372,7 +407,7 @@ function connect(fromStart = false) {
   source.addEventListener("end", (e) => {
     const f = JSON.parse(e.data);
     applyFrame(f);
-    splash(`Full time ${f.score[0]}–${f.score[1]}`, 4200);
+    sequence([[`Full time ${f.score[0]}–${f.score[1]}`, 3600], ["Match recap", 2000]]).then(() => askMatch("question", "Give me the match recap so far.", null, false));
     status("Full time. Finishing analysis…");
   });
   source.addEventListener("done", () => {
