@@ -105,6 +105,17 @@ npm install
 npm run dev
 ```
 
+### Hosted demo
+
+Live at https://ca-match-replay.gentlesmoke-46304b37.norwayeast.azurecontainerapps.io (Azure Container Apps). The app's managed identity has Foundry User on the Foundry account, so it calls `match-orchestrator` without secrets. `AGENT_CALLS_PER_HOUR` caps live agent calls; results prefilled with `scripts/prewarm_cache.py` replay for free.
+
+```bash
+python scripts/prewarm_cache.py --game 0 --personas casual analyst
+uv pip install --target build/image/site-replay --python-platform x86_64-manylinux_2_28 --python-version 3.13 --only-binary :all: -r requirements-replay.txt
+python scripts/push_image.py --app replay --registry <registry> --repository match-replay --tag <tag>
+az containerapp update -n ca-match-replay -g rg-matchintel --image <registry>.azurecr.io/match-replay:<tag>
+```
+
 ## Testing
 
 ```bash
