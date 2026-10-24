@@ -40,6 +40,7 @@ def test_no_future_events_and_clean_headline(tmp_path, monkeypatch):
     assert response.headline == "Goal, Home"
     assert [t.id for t in response.context_trail if t.kind == "event"] == ["0-1", "0-2"]
     assert all("0-3" not in t.id for t in response.context_trail)
+    assert response.context_trail[0].label == "Goal, Home"
     assert not any(c.match_clock(400) in line for line in response.observed)
 
 
@@ -66,6 +67,8 @@ def test_feedback_adjusts_preferences(tmp_path, monkeypatch):
     assert technical.depth == "balanced" and not technical.tactical
     follow = c.apply_feedback(prefs, c.FeedbackEvent(kind="follow_player", game_id=0, timestep=1, player_id=9))
     assert follow.preferences.favorite_player_id == 9 and "Daniel Moreau" in follow.effects[0]
+    from_moment = c.apply_feedback(prefs, c.FeedbackEvent(kind="follow_player", game_id=0, timestep=100))
+    assert from_moment.preferences.favorite_player_id == 9 and from_moment.effects
 
 
 def test_agent_profile_collapses_viewer_types():
