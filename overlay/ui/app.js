@@ -1,6 +1,7 @@
 const tauri = window.__TAURI__;
 const API = tauri ? "http://127.0.0.1:8765" : "";
 const $ = (id) => document.getElementById(id);
+const offlineMessage = tauri ? "Replay server offline. Run: python -m football_analytics.replay_server" : "Replay server unreachable.";
 const controls = ["game", "speed", "persona", "language", "club", "player", "focus", "enrich"];
 
 const state = { roster: null, source: null, frames: [], lastT: 0, paused: false, liveTimer: null, pending: new Map() };
@@ -140,11 +141,15 @@ function connect(fromStart = false) {
     applyFrame(JSON.parse(e.data));
     status("Full time. Waiting for remaining analysis…");
   });
+  source.addEventListener("done", () => {
+    source.close();
+    status("Full time. All analysis delivered.");
+  });
   source.onerror = () => {
-    if (source.readyState === EventSource.CLOSED || !state.frames.length) {
-      status(tauri ? "Replay server offline. Run: python -m football_analytics.replay_server" : "Replay server unreachable.", true);
-      source.close();
-    }
+    source.close();
+    if (state.source !== source || state.paused) return;
+    status(state.frames.length ? "Connection lost, reconnecting…" : offlineMessage, true);
+    setTimeout(() => state.source === source && !state.paused && connect(), 2000);
   };
 }
 
@@ -245,7 +250,7 @@ async function init() {
     $("enrich").checked = meta.enrich;
     $("enrich").disabled = !meta.enrich;
   } catch {
-    status(tauri ? "Replay server offline. Run: python -m football_analytics.replay_server" : "Replay server unreachable.", true);
+    status(offlineMessage, true);
     return;
   }
   for (const id of controls) $(id).addEventListener("change", () => connect(id === "game"));

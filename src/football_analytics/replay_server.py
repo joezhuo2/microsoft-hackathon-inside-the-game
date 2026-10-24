@@ -230,11 +230,12 @@ async def stream(request: Request) -> StreamingResponse:
             while not queue.empty():
                 yield sse(*queue.get_nowait())
             await asyncio.sleep(TICK_S)
-            position += speed * TICK_S
+            position = steps if position >= steps - 1 else min(position + speed * TICK_S, steps - 1)
         yield sse("end", frame_at(game_id, steps - 1))
         while tasks or not queue.empty():
             event = await queue.get()
             yield sse(*event)
+        yield sse("done", {})
 
     return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
