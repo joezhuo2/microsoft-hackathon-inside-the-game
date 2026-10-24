@@ -1,0 +1,187 @@
+{
+  "$defs": {
+    "TrailItem": {
+      "properties": {
+        "kind": {
+          "enum": [
+            "event",
+            "moment",
+            "metric",
+            "pattern"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "label"
+      ],
+      "title": "TrailItem",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "response_id": {
+      "title": "Response Id",
+      "type": "string"
+    },
+    "game_id": {
+      "title": "Game Id",
+      "type": "integer"
+    },
+    "timestep": {
+      "title": "Timestep",
+      "type": "integer"
+    },
+    "match_clock": {
+      "title": "Match Clock",
+      "type": "string"
+    },
+    "action": {
+      "enum": [
+        "explain_more",
+        "show_tactics",
+        "focus_player",
+        "simpler",
+        "numbers",
+        "why",
+        "question"
+      ],
+      "title": "Action",
+      "type": "string"
+    },
+    "question": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Question"
+    },
+    "headline": {
+      "title": "Headline",
+      "type": "string"
+    },
+    "observed": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Observed",
+      "type": "array"
+    },
+    "interpretation": {
+      "title": "Interpretation",
+      "type": "string"
+    },
+    "projection": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Projection"
+    },
+    "context_trail": {
+      "items": {
+        "$ref": "#/$defs/TrailItem"
+      },
+      "title": "Context Trail",
+      "type": "array"
+    },
+    "quick_replies": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 4,
+      "title": "Quick Replies",
+      "type": "array"
+    },
+    "depth": {
+      "enum": [
+        "headlines",
+        "balanced",
+        "deep"
+      ],
+      "title": "Depth",
+      "type": "string"
+    },
+    "tone": {
+      "enum": [
+        "neutral",
+        "emotional"
+      ],
+      "title": "Tone",
+      "type": "string"
+    },
+    "moment_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Moment Id"
+    },
+    "player_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Player Id"
+    },
+    "synthetic": {
+      "const": true,
+      "default": true,
+      "title": "Synthetic",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "response_id",
+    "game_id",
+    "timestep",
+    "match_clock",
+    "action",
+    "headline",
+    "observed",
+    "interpretation",
+    "context_trail",
+    "quick_replies",
+    "depth",
+    "tone"
+  ],
+  "title": "CommentaryResponse",
+  "type": "object"
+}

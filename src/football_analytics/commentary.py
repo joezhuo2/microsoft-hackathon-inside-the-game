@@ -153,13 +153,15 @@ def _current_moment(game_id: int, timestep: int, moment_id: str | None) -> dict[
 
 def _rhythm(game_id: int, timestep: int) -> dict[str, Any] | None:
     rhythm = intel._game("match_rhythm", game_id)
+    if rhythm.empty:
+        return None
     window = rhythm[rhythm["start_timestep"] <= timestep].tail(1)
     return None if window.empty else window.iloc[0].to_dict()
 
 
-def _event_lines(game_id: int, event_ids: list[str]) -> list[tuple[str, str]]:
+def _event_lines(game_id: int, event_ids: list[str], timestep: int) -> list[tuple[str, str]]:
     events = intel._game("events", game_id)
-    rows = events[events["event_id"].isin(event_ids)].sort_values("start_timestep")
+    rows = events[events["event_id"].isin(event_ids) & (events["start_timestep"] <= timestep)].sort_values("start_timestep")
     lines = []
     for _, event in rows.iterrows():
         who = intel._name(event["PLAYER_ID"]) or _club(event["TEAM_ID"])
@@ -226,9 +228,14 @@ def respond(game_id: int, timestep: int, prefs: ViewerPreferences, stats: dict[s
         trail.append(TrailItem(kind="pattern", id=f"window-{int(rhythm['window'])}", label=f"{label} spell"))
         rhythm_line = (f"Right now it's a {label} spell." if plain else f"Current window is {label}: control index {round(float(rhythm['control_index']), 2)}, momentum {round(float(rhythm['momentum_team0']), 2)} towards {short[0] if rhythm['momentum_team0'] >= 0 else short[1]}.")
 
-    headline = moment["fact_hint"] if moment else f"{match_clock(timestep)}: settled phase"
+    if not moment:
+        headline = f"{match_clock(timestep)}: settled phase"
+    elif moment["moment_type"] == "goal":
+        headline = f"Goal, {_club(moment.get('TEAM_ID'))}"
+    else:
+        headline = f"{name}: {moment['fact_hint']}" if name else moment["fact_hint"]
     if action in ("why", "explain_more", "simpler"):
-        lines = _event_lines(game_id, event_ids)[-limit:]
+        lines = _event_lines(game_id, event_ids, timestep)[-limit:]
         observed = [text for _, text in lines] or ([headline] if moment else [])
         trail += [TrailItem(kind="event", id=eid, label=text) for eid, text in lines]
         interpretation = why if action != "simpler" else why.split(":")[0].split(". ")[0].rstrip(".") + "."

@@ -1,0 +1,60 @@
+{
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "too_basic",
+        "too_technical",
+        "more_tactical",
+        "more_emotional",
+        "follow_player"
+      ],
+      "title": "Kind",
+      "type": "string"
+    },
+    "game_id": {
+      "title": "Game Id",
+      "type": "integer"
+    },
+    "timestep": {
+      "title": "Timestep",
+      "type": "integer"
+    },
+    "response_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Response Id"
+    },
+    "player_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Player Id"
+    }
+  },
+  "required": [
+    "kind",
+    "game_id",
+    "timestep"
+  ],
+  "title": "FeedbackEvent",
+  "type": "object"
+}
