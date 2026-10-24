@@ -1,0 +1,13 @@
+.venv*
+.git
+.pytest_cache
+.tmp_tracking_plan_validation
+**/__pycache__
+**/*.egg-info
+data/*.csv
+output/**/frame_metrics.csv
+output/*.csv
+output/*.json
+output/*.log
+output/analysis_*
+tests

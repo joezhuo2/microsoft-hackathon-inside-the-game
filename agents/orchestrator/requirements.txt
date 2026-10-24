@@ -1,0 +1,5 @@
+agent-framework==1.23.0
+agent-framework-foundry==1.15.0
+agent-framework-foundry-hosting==1.0.0b261022
+azure-identity
+pydantic>=2
