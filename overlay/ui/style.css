@@ -151,6 +151,14 @@ input[type="checkbox"] { accent-color: #fff; }
 #commentary .trail { justify-content: flex-start; }
 #commentary .note { margin-top: 8px; color: var(--muted); font-size: 12px; }
 #answerWrap.open { margin-top: 10px; }
+#onboard { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 20; width: min(420px, 92vw); padding: 22px; background: var(--bg); text-align: center; }
+#onboard[hidden] { display: none; }
+#onboard h2 { margin: 0 0 6px; font-size: 18px; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; text-shadow: var(--glow); }
+#onboard p { margin: 0 0 12px; font-size: 13px; color: var(--muted); }
+#onboard .replies { justify-content: center; }
+#onboard button { font: inherit; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--edge); padding: 8px 12px; cursor: pointer; }
+#onboard button:hover { border-color: var(--edge-strong); background: rgba(255, 255, 255, 0.08); }
+#onboardSkip { margin-top: 14px; color: var(--muted); }
 #answer { max-height: 240px; overflow-y: auto; padding: 10px; border: 1px solid var(--edge); font-size: 13px; white-space: pre-wrap; }
 #answer .tag { margin: 0 6px 8px 0; }
 .foot { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 11px; color: var(--muted); }

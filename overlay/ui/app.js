@@ -75,8 +75,16 @@ function profile() {
   return { persona: $("persona").value, language: $("language").value, club: $("club").value, player: $("player").value, focus: $("focus").value };
 }
 
+const PERSONAS = { casual: "Casual fan", superfan: "Superfan", analyst: "Tactical analyst", fantasy: "Fantasy player", producer: "Studio producer", newcomer: "New to football" };
+const PERSONA_DEPTH = { analyst: "deep", producer: "deep", newcomer: "headlines" };
+
 function analyst() {
-  return $("persona").value === "analyst";
+  return !["casual", "newcomer"].includes($("persona").value);
+}
+
+function setPersona(persona) {
+  $("persona").value = persona;
+  $("persona").dispatchEvent(new Event("change"));
 }
 
 function status(text, error = false) {
@@ -596,7 +604,7 @@ async function init() {
   for (const id of controls) $(id).addEventListener("change", () => connect(id === "game"));
   $("persona").addEventListener("change", () => {
     applyPersona();
-    state.prefs.depth = analyst() ? "deep" : "balanced";
+    state.prefs.depth = PERSONA_DEPTH[$("persona").value] || "balanced";
     savePrefs();
   });
   $("club").addEventListener("change", applyPersona);
@@ -632,6 +640,21 @@ async function init() {
     const q = $("question").value.trim();
     if (q) askMatch("question", q);
   };
+  let onboarded = false;
+  try { onboarded = Boolean(localStorage.getItem("match-onboarded")); } catch { onboarded = false; }
+  const closeOnboard = () => {
+    $("onboard").hidden = true;
+    try { localStorage.setItem("match-onboarded", "1"); } catch { /* storage unavailable */ }
+  };
+  $("onboardChoices").replaceChildren(...Object.entries(PERSONAS).map(([id, name]) => el("button", { type: "button", "data-persona": id }, name)));
+  $("onboardChoices").onclick = (e) => {
+    const persona = e.target.closest("[data-persona]")?.dataset.persona;
+    if (!persona) return;
+    setPersona(persona);
+    closeOnboard();
+  };
+  $("onboardSkip").onclick = closeOnboard;
+  $("onboard").hidden = onboarded;
   connect(true);
 }
 
