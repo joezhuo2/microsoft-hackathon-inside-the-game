@@ -30,7 +30,14 @@ const STATS = [
 
 const STALE_TIMESTEPS = 300;
 const MAX_CHIPS = 2;
-const state = { roster: null, source: null, frames: [], lastT: 0, paused: false, alertTimer: null, alertToken: 0, alertQueue: [], alertBusy: false, recent: [], entries: new Map(), moments: new Map(), stats: {}, score: [0, 0] };
+const PREF_KEY = "match-prefs";
+const DEPTH_PRIORITIES = { headlines: ["high"], balanced: ["high", "medium"], deep: ["high", "medium", "low"] };
+const ACTION_QUESTIONS = { explain_more: "Explain more", show_tactics: "Show tactics", simpler: "Make it simpler", numbers: "Give me the numbers", why: "Why did this matter?" };
+const REPLY_ACTIONS = Object.fromEntries(Object.entries(ACTION_QUESTIONS).map(([action, text]) => [text, action]));
+const FEEDBACK = [["too_basic", "Too basic"], ["too_technical", "Too technical"], ["more_tactical", "More tactical"], ["more_emotional", "More emotional"], ["follow_player", "Follow this player"]];
+let savedPrefs = {};
+try { savedPrefs = JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch { savedPrefs = {}; }
+const state = { prefs: { depth: "balanced", tone: "neutral", tactical: false, ...savedPrefs }, askToken: 0, last: null, roster: null, source: null, frames: [], lastT: 0, paused: false, alertTimer: null, alertToken: 0, alertQueue: [], alertBusy: false, recent: [], entries: new Map(), moments: new Map(), stats: {}, score: [0, 0] };
 
 document.body.classList.add(tauri ? "tauri" : "web");
 
@@ -126,7 +133,24 @@ function clubName(teamId) {
 }
 
 function visiblePriorities() {
-  return analyst() ? ["high", "medium", "low"] : ["high", "medium"];
+  return DEPTH_PRIORITIES[state.prefs.depth] || DEPTH_PRIORITIES.balanced;
+}
+
+function savePrefs() {
+  try { localStorage.setItem(PREF_KEY, JSON.stringify(state.prefs)); } catch { /* storage unavailable */ }
+}
+
+function preferences() {
+  const club = $("club").value, player = $("player").value;
+  return { persona: $("persona").value, language: $("language").value, favorite_club_id: club === "" ? null : Number(club), favorite_player_id: player === "" ? null : Number(player), metric_focus: $("focus").value || null, ...state.prefs };
+}
+
+function post(path, body) {
+  return fetch(`${API}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(async (response) => {
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || response.status);
+    return data;
+  });
 }
 
 function compactMode() {
@@ -440,7 +464,7 @@ async function ask(question) {
   $("answerWrap").classList.add("open");
   $("answer").replaceChildren(el("span", { class: "tag ghost dots" }, "agents working"));
   try {
-    const response = await fetch(`${API}/api/ask`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game: $("game").value, timestep: state.lastT, question, ...profile() }) });
+    const response = await fetch(`${API}/api/ask`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game: $("game").value, timestep: state.lastT, question, ...profile(), depth: state.prefs.depth, tone: state.prefs.tone, tactical: state.prefs.tactical }) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || response.status);
     const text = el("div", { dir: "auto" });
@@ -457,6 +481,81 @@ async function ask(question) {
 function setPanel(open) {
   $("panelWrap").classList.toggle("open", open);
   $("dockBtn").setAttribute("aria-expanded", String(open));
+  if (open) setAsk(false);
+}
+
+function setAsk(open) {
+  $("askWrap").classList.toggle("open", open);
+  $("askBtn").setAttribute("aria-expanded", String(open));
+  if (open && $("panelWrap").classList.contains("open")) setPanel(false);
+}
+
+function rev(tag, text) {
+  const node = el(tag, { dir: "auto" });
+  reveal(node, text);
+  return node;
+}
+
+function section(title, ...body) {
+  return [el("h4", {}, title), ...body];
+}
+
+function renderCommentary(r, note) {
+  $("commentary").replaceChildren(...[
+    el("h3", {}, r.headline, el("span", { class: "tag ghost" }, r.match_clock)),
+    r.observed.length ? section("Observed", el("ul", {}, r.observed.map((t) => rev("li", t)))) : null,
+    section("Interpretation", rev("p", r.interpretation)),
+    r.projection ? section("Projection", rev("p", r.projection)) : null,
+    el("div", { class: "trail" }, r.context_trail.map((t) => el("span", { class: "tag ghost", title: t.kind }, t.label))),
+    el("div", { class: "replies" }, r.quick_replies.map((q) => el("button", { type: "button", "data-reply": q }, q))),
+    el("div", { class: "replies" }, FEEDBACK.map(([kind, text]) => el("button", { type: "button", "data-feedback": kind }, text))),
+    note ? el("p", { class: "note" }, note) : null,
+  ].flat().filter(Boolean));
+}
+
+function agentQuestion(action, question, playerId) {
+  if (question) return question;
+  if (action !== "focus_player") return ACTION_QUESTIONS[action];
+  const id = playerId ?? ($("player").value || null);
+  const person = id == null ? null : state.roster?.players?.[id];
+  return person ? `Player focus on ${person.name} (player_id ${id}).` : "Focus on the player at the centre of the latest moment.";
+}
+
+async function askMatch(action, question = null, playerId = null, withAgent = true, note = null) {
+  setAsk(true);
+  const token = ++state.askToken;
+  $("commentary").replaceChildren(el("span", { class: "tag ghost dots" }, "analysing"));
+  const agent = withAgent && $("enrich").checked && !$("enrich").disabled;
+  if (agent) $("answerWrap").classList.remove("open");
+  try {
+    const r = await post("/api/commentary", { game: $("game").value, timestep: state.lastT, action, question, player_id: playerId, preferences: preferences() });
+    if (token !== state.askToken) return;
+    state.last = r;
+    renderCommentary(r, note);
+  } catch (error) {
+    if (token === state.askToken) $("commentary").textContent = `Could not load commentary (${error.message}).`;
+    return;
+  }
+  if (agent) ask(agentQuestion(action, question, playerId));
+}
+
+async function sendFeedback(kind) {
+  const r = state.last;
+  if (!r) return;
+  const player = r.player_id ?? ($("player").value || null);
+  try {
+    const data = await post("/api/feedback", { preferences: preferences(), event: { kind, game_id: Number($("game").value), timestep: state.lastT, response_id: r.response_id, player_id: player == null ? null : Number(player) } });
+    const { depth, tone, tactical, favorite_player_id: favorite } = data.preferences;
+    state.prefs = { depth, tone, tactical };
+    savePrefs();
+    if (favorite != null && String(favorite) !== $("player").value) {
+      $("player").value = String(favorite);
+      $("player").dispatchEvent(new Event("change"));
+    }
+    askMatch(r.action, r.question, r.player_id, false, data.effects.join(" "));
+  } catch (error) {
+    status(`Feedback failed (${error.message}).`, true);
+  }
 }
 
 let lastRegions = "";
@@ -495,7 +594,11 @@ async function init() {
     return;
   }
   for (const id of controls) $(id).addEventListener("change", () => connect(id === "game"));
-  $("persona").addEventListener("change", applyPersona);
+  $("persona").addEventListener("change", () => {
+    applyPersona();
+    state.prefs.depth = analyst() ? "deep" : "balanced";
+    savePrefs();
+  });
   $("club").addEventListener("change", applyPersona);
   $("player").addEventListener("change", () => {
     const p = state.roster.players[$("player").value];
@@ -509,16 +612,25 @@ async function init() {
     $("pause").textContent = state.paused ? "Resume" : "Pause";
     if (state.paused) { state.source?.close(); status("Paused"); } else connect();
   };
-  $("focusBtn").onclick = () => {
-    const id = $("player").value;
-    if (!id) return status("Pick a player first.", true);
-    ask(`Player focus on ${state.roster.players[id].name} (player_id ${id}).`);
+  $("askBtn").onclick = () => setAsk(!$("askWrap").classList.contains("open"));
+  $("focusBtn").onclick = () => askMatch("focus_player", null, Number($("player").value) || null);
+  $("recapBtn").onclick = () => askMatch("question", "Give me the match recap so far.");
+  $("askChips").onclick = (e) => {
+    const action = e.target.closest("[data-action]")?.dataset.action;
+    if (action) askMatch(action, null, action === "focus_player" ? Number($("player").value) || null : null);
   };
-  $("recapBtn").onclick = () => ask("Give me the match recap so far.");
+  $("commentary").onclick = (e) => {
+    const reply = e.target.closest("[data-reply]")?.dataset.reply;
+    const kind = e.target.closest("[data-feedback]")?.dataset.feedback;
+    if (kind) return sendFeedback(kind);
+    if (!reply) return;
+    if (reply.startsWith("Focus on ")) return askMatch("focus_player", null, state.last?.player_id ?? null);
+    askMatch(REPLY_ACTIONS[reply] || "question", REPLY_ACTIONS[reply] ? null : reply);
+  };
   $("ask").onsubmit = (e) => {
     e.preventDefault();
     const q = $("question").value.trim();
-    if (q) ask(q);
+    if (q) askMatch("question", q);
   };
   connect(true);
 }

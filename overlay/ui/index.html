@@ -42,12 +42,28 @@
           <button id="focusBtn">Player focus</button>
           <button id="recapBtn">Recap</button>
         </div>
+        <div class="foot"><span id="status">Connecting…</span><span class="hint tauri-only">Ctrl+Shift+O hides controls</span><button id="close" class="tauri-only" aria-label="Close overlay">Close</button></div>
+      </section>
+    </div>
+    <button id="askBtn" class="tile" data-hit aria-expanded="false" aria-controls="askPanel">
+      <span class="ibox" data-icon="spark"></span><span class="tile-label">Ask the match</span>
+    </button>
+    <div id="askWrap" class="collapse">
+      <section id="askPanel" class="frame" data-hit>
+        <div class="replies" id="askChips">
+          <button type="button" data-action="explain_more">Explain more</button>
+          <button type="button" data-action="show_tactics">Show tactics</button>
+          <button type="button" data-action="focus_player">Focus on player</button>
+          <button type="button" data-action="simpler">Make it simpler</button>
+          <button type="button" data-action="numbers">Give me the numbers</button>
+          <button type="button" data-action="why">Why did this matter?</button>
+        </div>
         <form id="ask">
           <input id="question" placeholder="Ask about the match…" autocomplete="off" maxlength="500">
           <button aria-label="Ask">Ask</button>
         </form>
+        <div id="commentary" dir="auto" aria-live="polite"></div>
         <div id="answerWrap" class="collapse"><div id="answer" dir="auto"></div></div>
-        <div class="foot"><span id="status">Connecting…</span><span class="hint tauri-only">Ctrl+Shift+O hides controls</span><button id="close" class="tauri-only" aria-label="Close overlay">Close</button></div>
       </section>
     </div>
   </aside>

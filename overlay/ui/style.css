@@ -113,12 +113,13 @@ body.locked #dock { opacity: 0; pointer-events: none; }
 .collapse { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 0.45s var(--ease), opacity 0.35s var(--ease), margin 0.45s var(--ease); }
 .collapse > * { min-height: 0; overflow: hidden; }
 .collapse.open { grid-template-rows: 1fr; opacity: 1; }
-#panelWrap.open { margin-top: 10px; }
-#panel { padding: 14px; }
+#panelWrap.open, #askWrap.open { margin-top: 10px; }
+#askBtn { margin-top: 10px; }
+#panel, #askPanel { padding: 14px; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
 label { display: flex; flex-direction: column; gap: 3px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
 label.check { flex-direction: row; align-items: center; gap: 8px; font-size: 12px; color: var(--text); }
-select, input, #panel button {
+select, input, #panel button, #askPanel button {
   font: inherit;
   font-size: 13px;
   letter-spacing: normal;
@@ -130,14 +131,25 @@ select, input, #panel button {
   padding: 5px 8px;
   transition: border-color 0.2s, background 0.2s;
 }
-select:hover, input:hover, #panel button:hover { border-color: var(--edge-strong); background: rgba(255, 255, 255, 0.08); }
+select:hover, input:hover, #panel button:hover, #askPanel button:hover { border-color: var(--edge-strong); background: rgba(255, 255, 255, 0.08); }
 select option { background: #111; }
 input[type="checkbox"] { accent-color: #fff; }
-#panel button { cursor: pointer; text-transform: uppercase; letter-spacing: 0.1em; font-size: 11px; }
+#panel button, #askPanel button { cursor: pointer; text-transform: uppercase; letter-spacing: 0.1em; font-size: 11px; }
 :focus-visible { outline: 1px solid #fff; outline-offset: 2px; }
 .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 #ask { display: flex; gap: 6px; margin-top: 12px; }
 #ask input { flex: 1; min-width: 0; }
+.replies { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+#askChips { margin-top: 0; }
+#askPanel button:disabled { opacity: 0.4; cursor: default; }
+#commentary:not(:empty) { margin-top: 12px; max-height: 320px; overflow-y: auto; padding: 10px; border: 1px solid var(--edge); font-size: 13px; }
+#commentary h3 { margin: 0 0 8px; font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 8px; text-shadow: var(--glow); }
+#commentary h3 .tag { margin-left: auto; }
+#commentary h4 { margin: 10px 0 4px; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 400; }
+#commentary p, #commentary ul { margin: 0; }
+#commentary ul { padding-left: 16px; }
+#commentary .trail { justify-content: flex-start; }
+#commentary .note { margin-top: 8px; color: var(--muted); font-size: 12px; }
 #answerWrap.open { margin-top: 10px; }
 #answer { max-height: 240px; overflow-y: auto; padding: 10px; border: 1px solid var(--edge); font-size: 13px; white-space: pre-wrap; }
 #answer .tag { margin: 0 6px 8px 0; }
