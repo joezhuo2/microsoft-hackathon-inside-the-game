@@ -96,6 +96,18 @@
     <div id="feedList"></div>
   </section>
 
+  <section id="studio" class="frame" aria-label="Producer view" hidden>
+    <div class="feed-head"><span class="icon" data-icon="sliders"></span>Producer queue<span class="tag ghost" id="sCount">0</span></div>
+    <div class="s-controls">
+      <label class="check"><input type="checkbox" id="sOnAir" checked>On air</label>
+      <label class="check"><input type="checkbox" data-auto="high" checked>Auto high</label>
+      <label class="check"><input type="checkbox" data-auto="medium" checked>Auto medium</label>
+      <label class="check"><input type="checkbox" data-auto="low">Auto low</label>
+      <label>Min confidence <output id="sConfOut">0%</output><input type="range" id="sConf" min="0" max="100" value="0"></label>
+    </div>
+    <div id="sQueue"></div>
+  </section>
+
   <footer id="tiles"></footer>
 
   <div id="onboard" class="frame" data-hit hidden role="dialog" aria-labelledby="onboardTitle"><h2 id="onboardTitle">How do you watch?</h2><p>Pick a viewer type. You can change it any time in Match centre.</p><div class="replies" id="onboardChoices"></div><button type="button" id="onboardSkip">Skip</button></div>

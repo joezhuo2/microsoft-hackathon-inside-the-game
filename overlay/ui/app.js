@@ -29,6 +29,8 @@ const STATS = [
 ];
 
 const STALE_TIMESTEPS = 300;
+const STUDIO = new URLSearchParams(location.search).get("view") === "studio";
+const STUDIO_MAX = 60;
 const MAX_CHIPS = 2;
 const PREF_KEY = "match-prefs";
 const DEPTH_PRIORITIES = { headlines: ["high"], balanced: ["high", "medium"], deep: ["high", "medium", "low"] };
@@ -37,7 +39,7 @@ const REPLY_ACTIONS = Object.fromEntries(Object.entries(ACTION_QUESTIONS).map(([
 const FEEDBACK = [["too_basic", "Too basic"], ["too_technical", "Too technical"], ["more_tactical", "More tactical"], ["more_emotional", "More emotional"], ["follow_player", "Follow this player"]];
 let savedPrefs = {};
 try { savedPrefs = JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch { savedPrefs = {}; }
-const state = { prefs: { depth: "balanced", tone: "neutral", tactical: false, ...savedPrefs }, askToken: 0, last: null, roster: null, source: null, frames: [], lastT: 0, paused: false, alertTimer: null, alertToken: 0, alertQueue: [], alertBusy: false, recent: [], entries: new Map(), moments: new Map(), stats: {}, score: [0, 0] };
+const state = { studio: { seq: 0, items: [], onAir: true, minConfidence: 0, autoAir: { high: true, medium: true, low: false } }, prefs: { depth: "balanced", tone: "neutral", tactical: false, ...savedPrefs }, askToken: 0, last: null, roster: null, source: null, frames: [], lastT: 0, paused: false, alertTimer: null, alertToken: 0, alertQueue: [], alertBusy: false, recent: [], entries: new Map(), moments: new Map(), stats: {}, score: [0, 0] };
 
 document.body.classList.add(tauri ? "tauri" : "web");
 
@@ -170,7 +172,30 @@ function compactMode() {
 function routeCue(data) {
   const cue = data.cue;
   if (!cue) return showAlert(data);
+  if (STUDIO) return studioCue(data);
   if (!visiblePriorities().includes(cue.priority)) return;
+  airCue(data);
+}
+
+function studioCue(data) {
+  const cue = data.cue;
+  const s = state.studio;
+  if (s.items.some((item) => item.cue.event_id === cue.event_id && item.cue.timestep === cue.timestep)) return;
+  const item = { id: ++s.seq, cue, data, status: "queued" };
+  s.items.unshift(item);
+  s.items.length = Math.min(s.items.length, STUDIO_MAX);
+  if (s.onAir && s.autoAir[cue.priority] && cue.confidence >= s.minConfidence / 100) airItem(item);
+  else renderQueue();
+}
+
+function airItem(item) {
+  item.status = "aired";
+  airCue(item.data);
+  renderQueue();
+}
+
+function airCue(data) {
+  const cue = data.cue;
   sting(cue);
   const compact = compactMode();
   state.recent.push(performance.now());
@@ -335,6 +360,25 @@ async function sequence(steps) {
   state.splashBusy = false;
 }
 
+function renderQueue() {
+  const s = state.studio;
+  $("sCount").textContent = `${s.items.length}`;
+  $("sQueue").replaceChildren(...s.items.map((item) => {
+    const cue = item.cue;
+    const look = theme(cue.theme);
+    const dropped = item.status === "dropped";
+    return el("div", { class: `q-row ${item.status}`, "data-id": item.id },
+      el("span", { class: "q-clock" }, cue.match_clock),
+      el("span", { class: `q-pri ${cue.priority}`, style: `color: ${look.accent}` }, cue.priority),
+      el("span", { class: "q-insight", dir: "auto", title: cue.primary_insight }, `${look.label}: ${cue.primary_insight}`),
+      el("span", { class: "q-actions" },
+        el("button", { type: "button", "data-air": "", ...(dropped || item.status === "aired" ? { disabled: "" } : {}) }, item.status === "aired" ? "On air" : "Air"),
+        " ",
+        el("button", { type: "button", "data-drop": "", ...(item.status === "aired" ? { disabled: "" } : {}) }, dropped ? "Dropped" : "Drop")),
+      el("span", { class: "q-meta" }, `conf ${Math.round(cue.confidence * 100)}% · ${cue.evidence} · ${cue.duration_ms / 1000}s · ts ${cue.timestep}${item.data.cue_validation?.valid === false ? " · failed check" : ""}`));
+  }));
+}
+
 function clockMinutes(clock) {
   return Number.parseInt(clock, 10);
 }
@@ -386,6 +430,8 @@ function connect(fromStart = false) {
     status(`Game ${s.game_id} live · ${s.enrich ? "AI analysis on" : "instant overlays only"}`);
     if (fromStart) {
       state.halfDone = false;
+      state.studio.items = [];
+      renderQueue();
       splash("Kick off", 2600);
     }
   });
@@ -655,6 +701,26 @@ async function init() {
     $("pause").textContent = state.paused ? "Resume" : "Pause";
     if (state.paused) { state.source?.close(); status("Paused"); } else connect();
   };
+  if (STUDIO) {
+    document.body.classList.add("studio");
+    $("studio").hidden = false;
+    $("sOnAir").onchange = (e) => { state.studio.onAir = e.target.checked; };
+    document.querySelectorAll("[data-auto]").forEach((box) => box.onchange = (e) => { state.studio.autoAir[box.dataset.auto] = e.target.checked; });
+    $("sConf").oninput = (e) => {
+      state.studio.minConfidence = Number(e.target.value);
+      $("sConfOut").textContent = `${e.target.value}%`;
+    };
+    $("sQueue").onclick = (e) => {
+      const id = Number(e.target.closest("[data-id]")?.dataset.id);
+      const item = state.studio.items.find((x) => x.id === id);
+      if (!item) return;
+      if (e.target.closest("[data-air]") && item.status !== "dropped") airItem(item);
+      if (e.target.closest("[data-drop]") && item.status !== "aired") {
+        item.status = "dropped";
+        renderQueue();
+      }
+    };
+  }
   $("askBtn").onclick = () => setAsk(!$("askWrap").classList.contains("open"));
   $("focusBtn").onclick = () => askMatch("focus_player", null, Number($("player").value) || null);
   $("recapBtn").onclick = () => askMatch("question", "Give me the match recap so far.");

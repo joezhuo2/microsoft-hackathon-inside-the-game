@@ -240,6 +240,21 @@ input[type="checkbox"] { accent-color: #fff; }
 .dot.fav { border: 2px solid #fff; background: transparent; box-shadow: 0 0 6px #fff; }
 
 /* AI feed, styled as the chat box */
+#studio { position: fixed; left: 18px; bottom: 18px; width: 380px; max-height: 42vh; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+#studio[hidden] { display: none; }
+.s-controls { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 11px; }
+.s-controls label { flex-direction: row; align-items: center; gap: 6px; }
+.s-controls input[type="range"] { accent-color: #fff; width: 100px; }
+#sQueue { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.q-row { display: grid; grid-template-columns: auto auto 1fr auto; gap: 2px 8px; align-items: center; padding: 6px 8px; border: 1px solid var(--edge); font-size: 12px; }
+.q-row .q-meta { grid-column: 1 / -1; font-size: 10px; letter-spacing: 0.06em; color: var(--muted); }
+.q-row .q-insight { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.q-row .q-pri { font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; }
+.q-row.dropped { opacity: 0.4; }
+.q-row.aired { border-color: var(--edge-strong); }
+.q-row button { font: inherit; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text); background: rgba(255, 255, 255, 0.04); border: 1px solid var(--edge); padding: 3px 7px; cursor: pointer; }
+.q-row button:disabled { opacity: 0.4; cursor: default; }
+body.studio #cam { top: 18px; }
 #feed { position: fixed; top: 322px; right: 18px; width: 380px; max-height: calc(100vh - 460px); padding: 12px 14px; overflow: hidden; }
 .feed-head { display: flex; align-items: center; gap: 8px; padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px solid var(--edge); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
 .feed-head .tag { margin-left: auto; }
@@ -319,6 +334,7 @@ input[type="checkbox"] { accent-color: #fff; }
   #cam { order: 3; }
   #tiles { order: 4; flex-wrap: wrap; }
   #feed { order: 5; }
+  #studio { order: 7; position: static; width: 100%; max-height: none; }
   #dock { order: 6; }
   .stat-wrap { flex: 1 1 140px; }
 }
