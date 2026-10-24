@@ -112,9 +112,14 @@ def apply_feedback(prefs: ViewerPreferences, event: FeedbackEvent) -> FeedbackRe
     elif event.kind == "more_emotional":
         updated.tone = "emotional"
         effects.append("Commentary tone set to emotional.")
-    elif event.kind == "follow_player" and event.player_id is not None:
-        updated.favorite_player_id = event.player_id
-        effects.append(f"Following {intel._name(event.player_id) or event.player_id}: their moments get the spotlight.")
+    elif event.kind == "follow_player":
+        moment = _current_moment(event.game_id, event.timestep, None) if event.player_id is None else None
+        player = event.player_id if event.player_id is not None else (int(moment["PLAYER_ID"]) if moment and moment.get("PLAYER_ID") is not None else None)
+        if player is None:
+            effects.append("No player in this moment to follow. Pick one in Match centre.")
+        else:
+            updated.favorite_player_id = player
+            effects.append(f"Following {intel._name(player) or player}: their moments get the spotlight.")
     return FeedbackResult(preferences=updated, effects=effects)
 
 
@@ -218,7 +223,6 @@ def respond(game_id: int, timestep: int, prefs: ViewerPreferences, stats: dict[s
     name = intel._name(moment.get("PLAYER_ID")) if moment else None
     why = why_it_matters(moment["moment_type"], metrics, moment.get("TEAM_ID"), name) if moment else "No standout moment in the last few minutes; the game is in a settled phase."
     if moment:
-        trail.append(TrailItem(kind="moment", id=moment["moment_id"], label=moment["fact_hint"]))
         event_ids = moment["event_ids"].split(";") if isinstance(moment.get("event_ids"), str) else []
     else:
         event_ids = []
@@ -234,6 +238,8 @@ def respond(game_id: int, timestep: int, prefs: ViewerPreferences, stats: dict[s
         headline = f"Goal, {_club(moment.get('TEAM_ID'))}"
     else:
         headline = f"{name}: {moment['fact_hint']}" if name else moment["fact_hint"]
+    if moment:
+        trail.insert(0, TrailItem(kind="moment", id=moment["moment_id"], label=headline))
     if action in ("why", "explain_more", "simpler"):
         lines = _event_lines(game_id, event_ids, timestep)[-limit:]
         observed = [text for _, text in lines] or ([headline] if moment else [])
