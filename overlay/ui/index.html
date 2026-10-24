@@ -7,53 +7,77 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <section id="scorebug" class="card" aria-live="polite">
-    <div class="row">
-      <span class="club" id="club0"><i></i><b>KVF</b></span>
-      <span class="score" id="score">0 – 0</span>
-      <span class="club" id="club1"><b>PSU</b><i></i></span>
-      <span class="clock" id="clock">00:00</span>
+  <header id="scorebar" class="frame" aria-live="polite">
+    <div class="team" id="team0"><i class="chip"></i><b>KVF</b></div>
+    <div class="score"><span id="score0">0</span><em>–</em><span id="score1">0</span></div>
+    <div class="team right" id="team1"><b>PSU</b><i class="chip"></i></div>
+    <div class="divider"></div>
+    <div class="clock"><span class="icon" data-icon="clock"></span><span id="clock">00:00</span></div>
+    <span class="tag" id="rhythm">waiting</span>
+    <div class="momentum" aria-label="Momentum"><div id="momentum"></div></div>
+  </header>
+
+  <aside id="dock">
+    <button id="dockBtn" class="tile" data-hit aria-expanded="false" aria-controls="panel">
+      <span class="ibox" data-icon="sliders"></span><span class="tile-label">Match centre</span>
+    </button>
+    <div id="panelWrap" class="collapse">
+      <section id="panel" class="frame" data-hit>
+        <div class="grid">
+          <label>Game<select id="game"></select></label>
+          <label>Speed<select id="speed"><option value="10">1×</option><option value="20">2×</option><option value="30" selected>3×</option><option value="60">6×</option></select></label>
+          <label>Viewer<select id="persona"><option value="casual">Casual</option><option value="analyst">Analyst</option></select></label>
+          <label>Language<select id="language"><option value="en">English</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="pt">Português</option><option value="it">Italiano</option><option value="ar">العربية</option><option value="ja">日本語</option><option value="zh">中文</option></select></label>
+          <label>Club<select id="club"><option value="">Neutral</option></select></label>
+          <label>Player<select id="player"><option value="">None</option></select></label>
+          <label>Focus<select id="focus"><option value="">Any</option><option value="speed">Speed</option><option value="passing">Passing</option><option value="pressure">Pressure</option><option value="possession">Possession</option></select></label>
+          <label class="check"><input type="checkbox" id="enrich" checked>AI analysis</label>
+        </div>
+        <div class="actions">
+          <button id="restart">Restart</button>
+          <button id="pause">Pause</button>
+          <button id="focusBtn">Player focus</button>
+          <button id="recapBtn">Recap</button>
+        </div>
+        <form id="ask">
+          <input id="question" placeholder="Ask about the match…" autocomplete="off" maxlength="500">
+          <button aria-label="Ask">Ask</button>
+        </form>
+        <div id="answerWrap" class="collapse"><div id="answer" dir="auto"></div></div>
+        <div class="foot"><span id="status">Connecting…</span><span class="hint tauri-only">Ctrl+Shift+O hides controls</span><button id="close" class="tauri-only" aria-label="Close overlay">Close</button></div>
+      </section>
     </div>
-    <div class="row sub">
-      <span class="pill" id="rhythm">waiting</span>
-      <div class="momentum" title="Momentum"><div id="momentum"></div></div>
-      <span class="poss" id="poss"></span>
+  </aside>
+
+  <section id="alert" class="frame hex" aria-live="assertive">
+    <div class="badge"><span data-icon="ball"></span></div>
+    <div class="alert-body">
+      <p class="kicker" id="alertKicker"></p>
+      <h2 id="alertHeadline" dir="auto"></h2>
+      <p id="alertBody" dir="auto"></p>
+      <div class="chips" id="alertStats"></div>
+    </div>
+    <span class="tag alert-tag" id="alertTag">moment</span>
+  </section>
+
+  <section id="cam" class="frame">
+    <canvas id="radar" aria-label="Live pitch radar"></canvas>
+    <div class="legend">
+      <span><i class="dot home"></i><b id="legend0">KVF</b></span>
+      <span><i class="dot away"></i><b id="legend1">PSU</b></span>
+      <span><i class="dot ball"></i>Ball</span>
+      <span id="legendFav" hidden><i class="dot fav"></i><b id="favName"></b></span>
     </div>
   </section>
 
-  <section id="panel" class="card">
-    <div class="panel-head">
-      <strong>Match Intelligence</strong>
-      <span class="hint tauri-only">Ctrl+Shift+O: click-through</span>
-      <button id="close" class="icon tauri-only" aria-label="Close overlay">×</button>
-    </div>
-    <div class="grid">
-      <label>Game<select id="game"></select></label>
-      <label>Speed<select id="speed"><option value="10">1× (5 min)</option><option value="20">2×</option><option value="30" selected>3×</option><option value="60">6×</option></select></label>
-      <label>Viewer<select id="persona"><option value="casual">Casual</option><option value="analyst">Analyst</option></select></label>
-      <label>Language<select id="language"><option value="en">English</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="pt">Português</option><option value="it">Italiano</option><option value="ar">العربية</option><option value="ja">日本語</option><option value="zh">中文</option></select></label>
-      <label>Club<select id="club"><option value="">Neutral</option></select></label>
-      <label>Player<select id="player"><option value="">None</option></select></label>
-      <label>Focus<select id="focus"><option value="">Any</option><option value="speed">Speed</option><option value="passing">Passing</option><option value="pressure">Pressure</option><option value="possession">Possession</option></select></label>
-      <label class="check"><input type="checkbox" id="enrich" checked>AI analysis</label>
-    </div>
-    <div class="actions">
-      <button id="restart">Restart</button>
-      <button id="pause">Pause</button>
-      <button id="focusBtn">Player focus</button>
-      <button id="recapBtn">Recap</button>
-    </div>
-    <form id="ask">
-      <input id="question" placeholder="Ask about the match…" autocomplete="off" maxlength="500">
-      <button>Ask</button>
-    </form>
-    <div id="answer" dir="auto" hidden></div>
-    <div id="status" class="status"></div>
+  <section id="feed" class="frame" aria-live="polite">
+    <div class="feed-head"><span class="icon" data-icon="spark"></span>AI analysis<span class="tag ghost" id="feedLang">EN</span></div>
+    <div id="feedList"></div>
   </section>
 
-  <section id="feed" aria-live="polite"></section>
-  <section id="live" aria-live="assertive"></section>
-  <canvas id="radar" width="360" height="240" aria-label="Live pitch radar"></canvas>
+  <footer id="tiles"></footer>
+
+  <div id="splash" aria-hidden="true"><div class="splash-text" id="splashText"></div></div>
 
   <script src="app.js"></script>
 </body>
