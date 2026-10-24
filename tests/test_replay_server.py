@@ -1,0 +1,37 @@
+import json
+
+import pandas as pd
+
+from football_analytics import mcp_server as server
+from football_analytics import replay_server as replay
+
+
+def _setup(tmp_path, monkeypatch):
+    folder = tmp_path / "games_0"
+    folder.mkdir()
+    pd.DataFrame([{"event_id": "0-000001", "GAME_ID": 0, "start_timestep": 10, "event_type": "shot_candidate", "PLAYER_ID": 9, "TEAM_ID": 0, "ball_speed_kmh": 120.5}]).to_csv(folder / "events.csv", index=False)
+    pd.DataFrame([{"moment_id": "M0-0001", "GAME_ID": 0, "start_timestep": 5, "end_timestep": 12, "match_clock": "00:22", "moment_type": "goal", "TEAM_ID": 0, "PLAYER_ID": 9, "importance": 1.0, "event_ids": "0-000001", "metrics": json.dumps({"score_after": "1-0", "shot_speed_kmh": 120.5}), "fact_hint": "Goal"}]).to_csv(folder / "key_moments.csv", index=False)
+    roster = tmp_path / "roster.json"
+    roster.write_text(json.dumps({"clubs": {"0": {"name": "Home"}, "1": {"name": "Away"}}, "players": {"9": {"name": "Daniel Moreau", "short": "Moreau", "number": 10}}}))
+    monkeypatch.setattr(server, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(server, "ROSTER_PATH", roster)
+    server._data.cache_clear()
+    server._roster.cache_clear()
+
+
+def test_instant_overlay_passes_gate(tmp_path, monkeypatch):
+    _setup(tmp_path, monkeypatch)
+    result = replay.instant_overlay(replay.moments(0)[0])
+    assert result["validation"]["valid"], result
+    assert result["overlay"]["headline"] == "GOAL Home, 1-0"
+    assert result["overlay"]["stats"] == [{"label": "shot speed", "value": 120.5, "unit": "km/h"}]
+
+
+def test_enriched_overlay_falls_back_to_gated_english(tmp_path, monkeypatch):
+    _setup(tmp_path, monkeypatch)
+    base = {"game_id": 0, "moment_id": "M0-0001", "start_timestep": 5, "display_seconds": 6, "template": "lower_third", "language": "en", "headline": "Moreau scores, 1-0", "body": "Shot at about 120.5 km/h", "player_id": 9, "stats": []}
+    good = replay.enriched_overlay({"narration": {"overlays": [base]}, "personalized": {"overlay_headline": "Moreau marque, 1-0", "overlay_body": "Tir à environ 120.5 km/h"}, "profile": {"language": "fr"}})
+    assert good["overlay"]["language"] == "fr" and good["validation"]["valid"]
+    bad = replay.enriched_overlay({"narration": {"overlays": [base]}, "personalized": {"overlay_headline": "Moreau marque à 150 km/h"}, "profile": {"language": "fr"}})
+    assert bad["overlay"] == base
+    assert replay.enriched_overlay({})["overlay"] is None
