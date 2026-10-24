@@ -6,6 +6,9 @@ import json
 import logging
 import os
 import re
+import threading
+import time
+from collections import deque
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -32,6 +35,7 @@ CACHE_DIR = Path(os.environ.get("ENRICH_CACHE_DIR", ROOT / "build" / "enrich_cac
 PROJECT_ENDPOINT = os.environ.get("FOUNDRY_PROJECT_ENDPOINT", "https://matchintel-dl41i.services.ai.azure.com/api/projects/matchintel")
 ORCHESTRATOR = os.environ.get("ORCHESTRATOR_AGENT", "match-orchestrator")
 ENRICH = os.environ.get("ENRICH", "1") == "1"
+AGENT_CALLS_PER_HOUR = int(os.environ.get("AGENT_CALLS_PER_HOUR", "0"))
 ENRICH_MIN_IMPORTANCE = float(os.environ.get("ENRICH_MIN_IMPORTANCE", "0.6"))
 TICK_S = 0.1
 PROFILE_KEYS = ("persona", "language", "favorite_club_id", "favorite_player_id", "metric_focus")
@@ -170,7 +174,28 @@ def orchestrator() -> Any:
     return AIProjectClient(endpoint=PROJECT_ENDPOINT, credential=DefaultAzureCredential()).get_openai_client(agent_name=ORCHESTRATOR)
 
 
+class BudgetExceeded(RuntimeError):
+    pass
+
+
+agent_calls: deque[float] = deque()
+agent_calls_lock = threading.Lock()
+
+
+def spend_agent_call() -> None:
+    if not AGENT_CALLS_PER_HOUR:
+        return
+    with agent_calls_lock:
+        now = time.monotonic()
+        while agent_calls and now - agent_calls[0] > 3600:
+            agent_calls.popleft()
+        if len(agent_calls) >= AGENT_CALLS_PER_HOUR:
+            raise BudgetExceeded("hourly live agent budget reached")
+        agent_calls.append(now)
+
+
 def ask_orchestrator(prompt: str) -> dict[str, Any]:
+    spend_agent_call()
     data = orchestrator().responses.with_raw_response.create(input=prompt).http_response.json()
     envelopes, text = [], []
     for item in data.get("output", []):
@@ -222,8 +247,11 @@ async def enrich(game_id: int, moment: dict[str, Any], profile: dict[str, Any]) 
         "fallbacks": envelope.get("fallbacks", ["orchestrator_did_not_call_live_moment"] if not envelope else []),
     }
     if result["overlay"] and not result["fallbacks"]:
-        CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+        try:
+            CACHE_DIR.mkdir(parents=True, exist_ok=True)
+            path.write_text(json.dumps(result, ensure_ascii=False), encoding="utf-8")
+        except OSError as error:
+            log.warning("could not cache %s: %s", moment["moment_id"], error)
     return result
 
 
@@ -298,6 +326,8 @@ async def ask(request: Request) -> JSONResponse:
     prompt = f"Fan question during game_id={game_id} at timestep={timestep} ({match_clock(timestep)}). profile_json={json.dumps(profile)}\nQuestion: {question}"
     try:
         reply = await asyncio.to_thread(ask_orchestrator, prompt)
+    except BudgetExceeded:
+        return JSONResponse({"error": "Live agent budget reached for this hour; cached analysis still works."}, status_code=429)
     except Exception as error:
         log.warning("ask failed: %s", error)
         return JSONResponse({"error": type(error).__name__}, status_code=502)
