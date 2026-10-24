@@ -97,7 +97,7 @@ The `Dockerfile` builds the same image where Docker or ACR Tasks are available.
 The same UI (`overlay/ui/`) runs two ways:
 
 - Web: open `http://127.0.0.1:8765` while the replay server runs.
-- Desktop overlay: a transparent, always-on-top Tauri 2 window over any screen. `Ctrl+Shift+O` switches between click-through and interactive mode.
+- Desktop overlay: a transparent, always-on-top Tauri 2 window over any screen. Clicks pass through to the apps underneath except over the Match Centre controls; `Ctrl+Shift+O` hides the controls.
 
 ```bash
 cd overlay
