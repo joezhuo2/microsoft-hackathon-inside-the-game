@@ -170,3 +170,70 @@ The top-level report contains aggregate quality fields, a nested validation repo
 ## `metric_metadata.json`
 
 Maps output file groups to short descriptions and unit notes. It is descriptive metadata, not a per-column schema; use this document for field-level definitions.
+## Synthetic extension files
+
+
+
+Written by `scripts/extend_synthetic.py` into each `output/games_*` folder. Every row and field is synthetic demo data, not observed from tracking, and must never be presented as observed. Timesteps use the same 3000-per-90-minute scale as `match_clock()`.
+
+
+
+### `synthetic_events.csv`
+
+
+
+Invented tackle and pressure events seeded from real candidate events. Synthetic flag: every row has `data_source = synthetic` and `synthetic = True`.
+
+
+
+| Field | Meaning |
+
+| --- | --- |
+
+| `event_id` | Identifier with `SYN-` prefix, unique across files. |
+
+| `GAME_ID` | Match identifier. |
+
+| `start_timestep`, `end_timestep` | Timesteps of the real event the synthetic row was sampled from. |
+
+| `event_type` | `tackle_synthetic` (sampled from possession gain or interception candidates, attributed to the winning player) or `pressure_synthetic` (attributed to an opposing-team player). |
+
+| `PLAYER_ID`, `TEAM_ID` | Player and team from `data/roster.json`. |
+
+| `data_source` | Always `synthetic`. |
+
+| `synthetic` | Always `True`. |
+
+| `label` | Short display text, for example `Synthetic tackle`. |
+
+
+
+### `synthetic_substitutions.csv`
+
+
+
+One to three invented substitutions per team per game, between minute 60 and 75 (timesteps 2000 to 2500). Synthetic flag: every row has `data_source = synthetic` and `synthetic = True`.
+
+
+
+| Field | Meaning |
+
+| --- | --- |
+
+| `GAME_ID`, `TEAM_ID` | Match and team. |
+
+| `start_timestep` | Substitution timestep. |
+
+| `player_off_id` | Starter leaving the pitch. |
+
+| `player_on_id` | Bench player (roster entries with `bench` and `synthetic` true) entering. |
+
+| `data_source`, `synthetic` | Always `synthetic` and `True`. |
+
+
+
+### `synthetic_match_meta.json`
+
+
+
+Fictional match context per game: `referee`, `venue`, `attendance`, `weather`, `kickoff_local_time`, each shaped `{"value": ..., "synthetic": true}`, under `games.<GAME_ID>`. Top-level `note` reads "All fields synthetic; not from a real match." and `synthetic` is true.
