@@ -49,3 +49,13 @@ def test_agent_budget_blocks_after_hourly_limit(monkeypatch):
     else:
         raise AssertionError("third call should exceed the budget")
     replay.agent_calls.clear()
+
+
+def test_cors_preflight_allows_private_network_for_tauri_origin():
+    from starlette.testclient import TestClient
+
+    headers = {"Origin": "http://tauri.localhost", "Access-Control-Request-Method": "GET", "Access-Control-Request-Private-Network": "true"}
+    response = TestClient(replay.app).options("/api/meta", headers=headers)
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-private-network"] == "true"
+    assert response.headers["access-control-allow-origin"] == "http://tauri.localhost"
