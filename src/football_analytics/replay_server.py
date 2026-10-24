@@ -167,6 +167,13 @@ def profile_from(params: Any) -> dict[str, Any]:
     return {"persona": params.get("persona", "casual"), "language": params.get("language", "en"), "favorite_club_id": number(params.get("club")), "favorite_player_id": number(params.get("player")), "metric_focus": params.get("focus") or None}
 
 
+AGENT_PERSONA = {"analyst": "analyst", "producer": "analyst", "fantasy": "analyst"}
+
+
+def agent_profile(profile: dict[str, Any]) -> dict[str, Any]:
+    return {**profile, "persona": AGENT_PERSONA.get(profile["persona"], "casual")}
+
+
 @lru_cache(maxsize=1)
 def orchestrator() -> Any:
     from azure.ai.projects import AIProjectClient
@@ -228,6 +235,7 @@ def enriched_overlay(envelope: dict[str, Any]) -> dict[str, Any]:
 
 
 async def enrich(game_id: int, moment: dict[str, Any], profile: dict[str, Any]) -> dict[str, Any]:
+    profile = agent_profile(profile)
     key = json.dumps([game_id, moment["moment_id"], [profile[k] for k in PROFILE_KEYS]])
     path = CACHE_DIR / f"{hashlib.sha1(key.encode()).hexdigest()[:16]}.json"
     if path.exists():
@@ -324,8 +332,8 @@ async def ask(request: Request) -> JSONResponse:
     profile = profile_from(body)
     if not question.strip():
         return JSONResponse({"error": "empty question"}, status_code=400)
-    style = f"Answer depth: {body.get('depth', 'balanced')}. Tone: {body.get('tone', 'neutral')}." + (" Lead with tactics." if body.get("tactical") else "")
-    prompt = f"Fan question during game_id={game_id} at timestep={timestep} ({match_clock(timestep)}). profile_json={json.dumps(profile)}\n{style}\nQuestion: {question}"
+    style = f"Viewer type: {profile['persona']}. Answer depth: {body.get('depth', 'balanced')}. Tone: {body.get('tone', 'neutral')}." + (" Lead with tactics." if body.get("tactical") else "")
+    prompt = f"Fan question during game_id={game_id} at timestep={timestep} ({match_clock(timestep)}). profile_json={json.dumps(agent_profile(profile))}\n{style}\nQuestion: {question}"
     try:
         reply = await asyncio.to_thread(ask_orchestrator, prompt)
     except BudgetExceeded:

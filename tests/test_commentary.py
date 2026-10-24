@@ -66,3 +66,10 @@ def test_feedback_adjusts_preferences(tmp_path, monkeypatch):
     assert technical.depth == "balanced" and not technical.tactical
     follow = c.apply_feedback(prefs, c.FeedbackEvent(kind="follow_player", game_id=0, timestep=1, player_id=9))
     assert follow.preferences.favorite_player_id == 9 and "Daniel Moreau" in follow.effects[0]
+
+
+def test_agent_profile_collapses_viewer_types():
+    from football_analytics.replay_server import agent_profile
+
+    assert [agent_profile({"persona": p})["persona"] for p in ("casual", "superfan", "analyst", "fantasy", "producer", "newcomer")] == ["casual", "casual", "analyst", "analyst", "analyst", "casual"]
+    assert agent_profile({"persona": "producer", "language": "en"})["language"] == "en"
