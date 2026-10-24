@@ -9,3 +9,4 @@ HANDOFF.md
 .tmp_tracking_plan_validation/
 *.egg-info/
 .vscode/
+.venv-agents/
