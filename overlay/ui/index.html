@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Match Overlay</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <section id="scorebug" class="card" aria-live="polite">
+    <div class="row">
+      <span class="club" id="club0"><i></i><b>KVF</b></span>
+      <span class="score" id="score">0 – 0</span>
+      <span class="club" id="club1"><b>PSU</b><i></i></span>
+      <span class="clock" id="clock">00:00</span>
+    </div>
+    <div class="row sub">
+      <span class="pill" id="rhythm">waiting</span>
+      <div class="momentum" title="Momentum"><div id="momentum"></div></div>
+      <span class="poss" id="poss"></span>
+    </div>
+  </section>
+
+  <section id="panel" class="card">
+    <div class="panel-head">
+      <strong>Match Intelligence</strong>
+      <span class="hint tauri-only">Ctrl+Shift+O: click-through</span>
+      <button id="close" class="icon tauri-only" aria-label="Close overlay">×</button>
+    </div>
+    <div class="grid">
+      <label>Game<select id="game"></select></label>
+      <label>Speed<select id="speed"><option value="10">1× (5 min)</option><option value="20">2×</option><option value="30" selected>3×</option><option value="60">6×</option></select></label>
+      <label>Viewer<select id="persona"><option value="casual">Casual</option><option value="analyst">Analyst</option></select></label>
+      <label>Language<select id="language"><option value="en">English</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="pt">Português</option><option value="it">Italiano</option><option value="ar">العربية</option><option value="ja">日本語</option><option value="zh">中文</option></select></label>
+      <label>Club<select id="club"><option value="">Neutral</option></select></label>
+      <label>Player<select id="player"><option value="">None</option></select></label>
+      <label>Focus<select id="focus"><option value="">Any</option><option value="speed">Speed</option><option value="passing">Passing</option><option value="pressure">Pressure</option><option value="possession">Possession</option></select></label>
+      <label class="check"><input type="checkbox" id="enrich" checked>AI analysis</label>
+    </div>
+    <div class="actions">
+      <button id="restart">Restart</button>
+      <button id="pause">Pause</button>
+      <button id="focusBtn">Player focus</button>
+      <button id="recapBtn">Recap</button>
+    </div>
+    <form id="ask">
+      <input id="question" placeholder="Ask about the match…" autocomplete="off" maxlength="500">
+      <button>Ask</button>
+    </form>
+    <div id="answer" dir="auto" hidden></div>
+    <div id="status" class="status"></div>
+  </section>
+
+  <section id="feed" aria-live="polite"></section>
+  <section id="live" aria-live="assertive"></section>
+  <canvas id="radar" width="360" height="240" aria-label="Live pitch radar"></canvas>
+
+  <script src="app.js"></script>
+</body>
+</html>
