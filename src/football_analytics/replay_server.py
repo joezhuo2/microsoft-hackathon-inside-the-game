@@ -21,6 +21,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from . import mcp_server as intel
+from . import overlay_cues as cues
 from .data_loader import load_tracking_data
 from .match_intelligence import match_clock
 
@@ -114,7 +115,7 @@ def _club(team: Any) -> str | None:
     return intel._roster()["clubs"].get(str(int(team)), {}).get("name")
 
 
-def instant_overlay(moment: dict[str, Any]) -> dict[str, Any]:
+def instant_overlay(moment: dict[str, Any], profile: dict[str, Any] | None = None) -> dict[str, Any]:
     metrics = json.loads(moment["metrics"]) if isinstance(moment.get("metrics"), str) else {}
     player_id = None if moment.get("PLAYER_ID") is None or pd.isna(moment["PLAYER_ID"]) else int(moment["PLAYER_ID"])
     name = intel._name(player_id)
@@ -139,7 +140,14 @@ def instant_overlay(moment: dict[str, Any]) -> dict[str, Any]:
         "player_id": player_id,
         "stats": stats[:4],
     }
-    return {"overlay": overlay, "validation": intel.validate_overlay(overlay), "moment_type": kind, "importance": float(moment["importance"]), "team_id": None if pd.isna(moment.get("TEAM_ID")) else int(moment["TEAM_ID"])}
+    cue = cues.moment_cue(moment, overlay["stats"], profile or {})
+    return {"overlay": overlay, "validation": intel.validate_overlay(overlay), "moment_type": kind, "importance": float(moment["importance"]), "team_id": None if pd.isna(moment.get("TEAM_ID")) else int(moment["TEAM_ID"]), "cue": cue.model_dump(), "cue_validation": cue_check(cue)}
+
+
+def cue_check(cue: cues.OverlayCue) -> dict[str, Any] | None:
+    if not cue.source_event_ids and not cue.moment_id:
+        return None
+    return intel.validate_claims(cue.game_id, f"{cue.primary_insight} {cue.why_it_matters}", cue.source_event_ids, [cue.moment_id] if cue.moment_id else [], [cue.player_focus.player_id] if cue.player_focus else [])
 
 
 def moments(game_id: int) -> list[dict[str, Any]]:
@@ -232,6 +240,7 @@ async def stream(request: Request) -> StreamingResponse:
     profile = profile_from(params)
     steps = tracks()[game_id]["steps"]
     pending = [m for m in moments(game_id) if m["start_timestep"] >= position]
+    extra = [c for c in cues.derived_cues(game_id, profile, tracks(), running_stats(game_id)) if c.timestep >= position]
 
     async def events():
         queue: asyncio.Queue[tuple[str, Any]] = asyncio.Queue()
@@ -251,13 +260,16 @@ async def stream(request: Request) -> StreamingResponse:
             yield sse("frame", frame_at(game_id, int(position)))
             while pending and pending[0]["start_timestep"] <= position:
                 moment = pending.pop(0)
-                yield sse("moment", instant_overlay(moment))
+                yield sse("moment", instant_overlay(moment, profile))
                 if enrich_on and moment["importance"] >= ENRICH_MIN_IMPORTANCE:
                     task = asyncio.create_task(run(moment))
                     tasks.add(task)
                     background.add(task)
                     task.add_done_callback(tasks.discard)
                     task.add_done_callback(background.discard)
+            while extra and extra[0].timestep <= position:
+                cue = extra.pop(0)
+                yield sse("cue", {"cue": cue.model_dump(), "cue_validation": cue_check(cue)})
             while not queue.empty():
                 yield sse(*queue.get_nowait())
             await asyncio.sleep(TICK_S)

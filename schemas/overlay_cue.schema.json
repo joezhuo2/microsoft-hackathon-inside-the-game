@@ -1,0 +1,240 @@
+{
+  "$defs": {
+    "Metric": {
+      "properties": {
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Value"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        }
+      },
+      "required": [
+        "label",
+        "value"
+      ],
+      "title": "Metric",
+      "type": "object"
+    },
+    "PlayerFocus": {
+      "properties": {
+        "player_id": {
+          "title": "Player Id",
+          "type": "integer"
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Name"
+        },
+        "involvement": {
+          "title": "Involvement",
+          "type": "string"
+        }
+      },
+      "required": [
+        "player_id",
+        "involvement"
+      ],
+      "title": "PlayerFocus",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "moment_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Moment Id"
+    },
+    "game_id": {
+      "title": "Game Id",
+      "type": "integer"
+    },
+    "timestep": {
+      "minimum": 0,
+      "title": "Timestep",
+      "type": "integer"
+    },
+    "match_clock": {
+      "title": "Match Clock",
+      "type": "string"
+    },
+    "event_type": {
+      "title": "Event Type",
+      "type": "string"
+    },
+    "primary_insight": {
+      "maxLength": 90,
+      "title": "Primary Insight",
+      "type": "string"
+    },
+    "why_it_matters": {
+      "maxLength": 220,
+      "title": "Why It Matters",
+      "type": "string"
+    },
+    "confidence": {
+      "maximum": 1,
+      "minimum": 0,
+      "title": "Confidence",
+      "type": "number"
+    },
+    "evidence": {
+      "enum": [
+        "observed",
+        "derived"
+      ],
+      "title": "Evidence",
+      "type": "string"
+    },
+    "priority": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ],
+      "title": "Priority",
+      "type": "string"
+    },
+    "duration_ms": {
+      "maximum": 15000,
+      "minimum": 1500,
+      "title": "Duration Ms",
+      "type": "integer"
+    },
+    "theme": {
+      "enum": [
+        "breakthrough",
+        "pressure_shift",
+        "momentum_swing",
+        "player_spotlight",
+        "goal_threat",
+        "defensive_masterclass",
+        "chaos_index",
+        "control_index",
+        "milestone",
+        "recap_cue"
+      ],
+      "title": "Theme",
+      "type": "string"
+    },
+    "audience_mode": {
+      "default": "casual",
+      "enum": [
+        "casual",
+        "superfan",
+        "analyst",
+        "fantasy",
+        "producer",
+        "newcomer"
+      ],
+      "title": "Audience Mode",
+      "type": "string"
+    },
+    "team_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Team Id"
+    },
+    "player_focus": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PlayerFocus"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "supporting_metrics": {
+      "items": {
+        "$ref": "#/$defs/Metric"
+      },
+      "maxItems": 4,
+      "title": "Supporting Metrics",
+      "type": "array"
+    },
+    "source_event_ids": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Source Event Ids",
+      "type": "array"
+    },
+    "synthetic": {
+      "const": true,
+      "default": true,
+      "title": "Synthetic",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "event_id",
+    "game_id",
+    "timestep",
+    "match_clock",
+    "event_type",
+    "primary_insight",
+    "why_it_matters",
+    "confidence",
+    "evidence",
+    "priority",
+    "duration_ms",
+    "theme"
+  ],
+  "title": "OverlayCue",
+  "type": "object"
+}
