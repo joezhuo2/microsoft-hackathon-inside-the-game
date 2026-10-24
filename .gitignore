@@ -10,3 +10,6 @@ HANDOFF.md
 *.egg-info/
 .vscode/
 .venv-agents/
+node_modules/
+overlay/src-tauri/target/
+overlay/src-tauri/gen/
