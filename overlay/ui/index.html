@@ -14,8 +14,11 @@
     <div class="divider"></div>
     <div class="clock"><span class="icon" data-icon="clock"></span><span id="clock">00:00</span></div>
     <span class="tag" id="rhythm">waiting</span>
+    <span class="tag ghost synthetic" title="All match data in this demo is synthetic">Synthetic data</span>
     <div class="momentum" aria-label="Momentum"><div id="momentum"></div></div>
   </header>
+
+  <section id="lane" aria-live="polite" aria-label="Live cues"></section>
 
   <aside id="dock">
     <button id="dockBtn" class="tile" data-hit aria-expanded="false" aria-controls="panel">
@@ -50,12 +53,14 @@
   </aside>
 
   <section id="alert" class="frame hex" aria-live="assertive">
+    <span class="sheen" aria-hidden="true"></span>
     <div class="badge"><span data-icon="ball"></span></div>
     <div class="alert-body">
       <p class="kicker" id="alertKicker"></p>
       <h2 id="alertHeadline" dir="auto"></h2>
       <p id="alertBody" dir="auto"></p>
       <div class="chips" id="alertStats"></div>
+      <div class="trail" id="alertTrail"></div>
     </div>
     <span class="tag alert-tag" id="alertTag">moment</span>
   </section>
@@ -79,6 +84,7 @@
 
   <div id="splash" aria-hidden="true"><div class="splash-text" id="splashText"></div></div>
 
+  <script src="themes.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
