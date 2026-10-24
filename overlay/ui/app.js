@@ -28,12 +28,14 @@ const STATS = [
   { key: "sprints", label: "Sprints", icon: "bolt" },
 ];
 
-const state = { roster: null, source: null, frames: [], lastT: 0, paused: false, alertTimer: null, alertToken: 0, entries: new Map(), moments: new Map(), stats: {}, score: [0, 0] };
+const STALE_TIMESTEPS = 300;
+const MAX_CHIPS = 2;
+const state = { roster: null, source: null, frames: [], lastT: 0, paused: false, alertTimer: null, alertToken: 0, alertQueue: [], alertBusy: false, recent: [], entries: new Map(), moments: new Map(), stats: {}, score: [0, 0] };
 
 document.body.classList.add(tauri ? "tauri" : "web");
 
 function svg(name) {
-  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ""}</svg>`;
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || THEME_ICONS[name] || ""}</svg>`;
 }
 
 function paintIcons(root = document) {
@@ -119,8 +121,49 @@ function updateStats(stats) {
   }
 }
 
-function showAlert(data) {
+function clubName(teamId) {
+  return teamId == null ? "Match" : state.roster?.clubs?.[String(teamId)]?.name || `Team ${teamId}`;
+}
+
+function visiblePriorities() {
+  return analyst() ? ["high", "medium", "low"] : ["high", "medium"];
+}
+
+function compactMode() {
+  const now = performance.now();
+  state.recent = state.recent.filter((at) => now - at < 4000);
+  return window.matchMedia("(max-width: 900px)").matches || state.recent.length >= 3;
+}
+
+function routeCue(data) {
+  const cue = data.cue;
+  if (!cue) return showAlert(data);
+  if (!visiblePriorities().includes(cue.priority)) return;
+  const compact = compactMode();
+  state.recent.push(performance.now());
+  if (cue.priority === "high" && !compact) {
+    state.alertQueue.push(data);
+    if (!state.alertBusy) nextAlert();
+  } else {
+    showChip(cue);
+  }
+}
+
+function nextAlert() {
+  while (state.alertQueue.length && state.lastT - state.alertQueue[0].cue.timestep > STALE_TIMESTEPS) state.alertQueue.shift();
+  const data = state.alertQueue.shift();
+  state.alertBusy = Boolean(data);
+  if (data) showAlert(data, () => setTimeout(nextAlert, 380));
+}
+
+function metricNodes(metrics) {
+  return metrics.map((s) => el("div", {}, el("b", {}, `${s.value}${s.unit ? " " + s.unit : ""}`), el("span", {}, s.label)));
+}
+
+function showAlert(data, onDone) {
   const o = data.overlay;
+  const cue = data.cue;
+  const look = cue ? theme(cue.theme) : null;
   const token = ++state.alertToken;
   const box = $("alert");
   const wasShown = box.classList.contains("show");
@@ -128,22 +171,57 @@ function showAlert(data) {
   clearTimeout(state.alertTimer);
   setTimeout(() => {
     if (token !== state.alertToken) return;
-    box.classList.toggle("goal", data.moment_type === "goal");
-    box.querySelector(".badge span").dataset.icon = MOMENT_ICON[data.moment_type] || "spark";
+    const kind = cue?.event_type || data.moment_type;
+    box.classList.toggle("goal", kind === "goal");
+    box.style.setProperty("--accent", look?.accent || "#fff");
+    box.dataset.motion = look?.motion || "";
+    box.querySelector(".badge span").dataset.icon = kind === "goal" ? "ball" : look?.icon || MOMENT_ICON[kind] || "spark";
     paintIcons(box.querySelector(".badge"));
-    $("alertKicker").textContent = o.body;
-    $("alertTag").textContent = label(data.moment_type);
-    reveal($("alertHeadline"), o.headline);
-    $("alertBody").textContent = "";
-    $("alertStats").replaceChildren(...(analyst() ? o.stats : []).map((s) => el("div", {}, el("b", {}, `${s.value}${s.unit ? " " + s.unit : ""}`), el("span", {}, s.label))));
+    $("alertKicker").textContent = cue ? `${cue.match_clock} · ${clubName(cue.team_id)}` : o.body;
+    $("alertTag").textContent = look?.label || label(kind);
+    reveal($("alertHeadline"), cue?.primary_insight || o.headline);
+    reveal($("alertBody"), cue?.why_it_matters || "");
+    $("alertStats").replaceChildren(...metricNodes(analyst() ? cue?.supporting_metrics || o?.stats || [] : []));
+    const lowConfidence = Boolean(cue && cue.confidence < 0.5);
+    box.classList.toggle("low-confidence", lowConfidence);
+    $("alertTrail").replaceChildren(...(cue && (analyst() || lowConfidence) ? [
+      el("span", { class: "tag ghost" }, `${cue.evidence} · ${Math.round(cue.confidence * 100)}%`),
+      lowConfidence ? el("span", { class: "tag warn" }, "low confidence") : null,
+      analyst() && cue.source_event_ids.length ? el("span", { class: "ids" }, `events ${cue.source_event_ids.slice(-3).join(", ")}`) : null,
+    ].filter(Boolean) : []));
     void box.offsetWidth;
     box.classList.add("show");
-    state.alertTimer = setTimeout(() => box.classList.remove("show"), o.display_seconds * 1000);
+    state.alertTimer = setTimeout(() => {
+      box.classList.remove("show");
+      onDone?.();
+    }, cue?.duration_ms || o.display_seconds * 1000);
   }, wasShown ? 320 : 0);
+}
+
+function showChip(cue) {
+  const look = theme(cue.theme);
+  const chip = el("div", { class: "cue-chip frame", role: "status" },
+    el("span", { class: "chip-icon", "data-icon": look.icon }),
+    el("span", { class: "chip-text", dir: "auto" }, el("b", {}, look.label), " ", cue.primary_insight));
+  chip.style.setProperty("--accent", look.accent);
+  paintIcons(chip);
+  $("lane").prepend(chip);
+  requestAnimationFrame(() => requestAnimationFrame(() => chip.classList.add("in")));
+  const live = [...$("lane").children].filter((n) => !n.classList.contains("leaving"));
+  live.slice(MAX_CHIPS).forEach(dismissChip);
+  setTimeout(() => dismissChip(chip), cue.duration_ms);
+}
+
+function dismissChip(chip) {
+  if (chip.classList.contains("leaving")) return;
+  chip.classList.add("leaving");
+  chip.classList.remove("in");
+  setTimeout(() => chip.remove(), 450);
 }
 
 function addEntry(momentId, build) {
   const inner = el("div", { class: "entry loading" });
+  inner.style.setProperty("--accent", theme(state.moments.get(momentId)?.cue?.theme).accent);
   const item = el("div", { class: "feed-item" }, el("div", {}, inner));
   build(inner);
   $("feedList").prepend(item);
@@ -232,7 +310,9 @@ function connect(fromStart = false) {
   }
   const query = new URLSearchParams({ game: $("game").value, speed: $("speed").value, start: String(state.lastT), enrich: $("enrich").checked ? "1" : "0", ...profile() });
   state.entries.clear();
+  state.alertQueue = [];
   $("feedList").replaceChildren();
+  $("lane").replaceChildren();
   $("feedLang").textContent = $("language").value.toUpperCase();
   const source = new EventSource(`${API}/api/stream?${query}`);
   state.source = source;
@@ -246,8 +326,9 @@ function connect(fromStart = false) {
   source.addEventListener("moment", (e) => {
     const data = JSON.parse(e.data);
     state.moments.set(data.overlay.moment_id, data);
-    showAlert(data);
+    routeCue(data);
   });
+  source.addEventListener("cue", (e) => routeCue(JSON.parse(e.data)));
   source.addEventListener("enriching", (e) => showPending(JSON.parse(e.data).moment_id));
   source.addEventListener("enriched", (e) => showEnriched(JSON.parse(e.data)));
   source.addEventListener("enrich_failed", (e) => {
