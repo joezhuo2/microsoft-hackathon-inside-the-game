@@ -1,0 +1,31 @@
+{
+  "note": "Synthetic, fictional clubs and players. Any resemblance to real clubs or people is coincidental.",
+  "clubs": {
+    "0": {"name": "Kestrel Vale FC", "short": "KVF", "primary_color": "#1f6feb", "secondary_color": "#ffffff", "city": "Kestrel Vale"},
+    "1": {"name": "Port Saltmere United", "short": "PSU", "primary_color": "#d1242f", "secondary_color": "#111111", "city": "Port Saltmere"}
+  },
+  "players": {
+    "0":   {"name": "Tomas Ellery",      "short": "Ellery",     "number": 1,  "role": "goalkeeper",       "nationality": "ENG"},
+    "1":   {"name": "Rafael Quintero",   "short": "Quintero",   "number": 7,  "role": "right midfield",   "nationality": "ESP"},
+    "2":   {"name": "Kwame Asante-Boyd", "short": "Asante-Boyd","number": 9,  "role": "central front",    "nationality": "GHA"},
+    "3":   {"name": "Lukas Brenner",     "short": "Brenner",    "number": 3,  "role": "left back",        "nationality": "GER"},
+    "4":   {"name": "Owen Hartigan",     "short": "Hartigan",   "number": 5,  "role": "centre back",      "nationality": "IRL"},
+    "5":   {"name": "Mateus Farias",     "short": "Farias",     "number": 4,  "role": "centre back",      "nationality": "POR"},
+    "6":   {"name": "Jalen Okafor",      "short": "Okafor",     "number": 2,  "role": "right back",       "nationality": "NGA"},
+    "7":   {"name": "Hugo Valcourt",     "short": "Valcourt",   "number": 8,  "role": "central midfield", "nationality": "FRA"},
+    "8":   {"name": "Sami Lindqvist",    "short": "Lindqvist",  "number": 6,  "role": "central midfield", "nationality": "SWE"},
+    "9":   {"name": "Daniel Moreau",     "short": "Moreau",     "number": 10, "role": "central midfield", "nationality": "BEL"},
+    "10":  {"name": "Yusuf Demir",       "short": "Demir",      "number": 11, "role": "left midfield",    "nationality": "TUR"},
+    "100": {"name": "Arvid Nystrom",     "short": "Nystrom",    "number": 1,  "role": "goalkeeper",       "nationality": "NOR"},
+    "101": {"name": "Diego Salcedo",     "short": "Salcedo",    "number": 7,  "role": "right midfield",   "nationality": "MEX"},
+    "102": {"name": "Kenji Morimoto",    "short": "Morimoto",   "number": 9,  "role": "central front",    "nationality": "JPN"},
+    "103": {"name": "Marco Ventresca",   "short": "Ventresca",  "number": 3,  "role": "left back",        "nationality": "ITA"},
+    "104": {"name": "Callum Rees",       "short": "Rees",       "number": 5,  "role": "centre back",      "nationality": "WAL"},
+    "105": {"name": "Idrissa Kone",      "short": "Kone",       "number": 4,  "role": "centre back",      "nationality": "CIV"},
+    "106": {"name": "Pieter de Waal",    "short": "de Waal",    "number": 2,  "role": "right back",       "nationality": "NED"},
+    "107": {"name": "Felipe Arantes",    "short": "Arantes",    "number": 8,  "role": "central midfield", "nationality": "BRA"},
+    "108": {"name": "Ewan McTavish",     "short": "McTavish",   "number": 6,  "role": "central midfield", "nationality": "SCO"},
+    "109": {"name": "Andrei Petrescu",   "short": "Petrescu",   "number": 10, "role": "central midfield", "nationality": "ROU"},
+    "110": {"name": "Liam Fairbanks",    "short": "Fairbanks",  "number": 11, "role": "left midfield",    "nationality": "USA"}
+  }
+}
