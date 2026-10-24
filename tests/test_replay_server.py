@@ -35,3 +35,17 @@ def test_enriched_overlay_falls_back_to_gated_english(tmp_path, monkeypatch):
     bad = replay.enriched_overlay({"narration": {"overlays": [base]}, "personalized": {"overlay_headline": "Moreau marque à 150 km/h"}, "profile": {"language": "fr"}})
     assert bad["overlay"] == base
     assert replay.enriched_overlay({})["overlay"] is None
+
+
+def test_agent_budget_blocks_after_hourly_limit(monkeypatch):
+    monkeypatch.setattr(replay, "AGENT_CALLS_PER_HOUR", 2)
+    replay.agent_calls.clear()
+    replay.spend_agent_call()
+    replay.spend_agent_call()
+    try:
+        replay.spend_agent_call()
+    except replay.BudgetExceeded:
+        pass
+    else:
+        raise AssertionError("third call should exceed the budget")
+    replay.agent_calls.clear()
