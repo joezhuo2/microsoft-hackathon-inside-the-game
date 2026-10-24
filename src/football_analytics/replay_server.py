@@ -24,6 +24,7 @@ from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
 from . import mcp_server as intel
+from . import commentary
 from . import overlay_cues as cues
 from .data_loader import load_tracking_data
 from .match_intelligence import match_clock
@@ -323,7 +324,8 @@ async def ask(request: Request) -> JSONResponse:
     profile = profile_from(body)
     if not question.strip():
         return JSONResponse({"error": "empty question"}, status_code=400)
-    prompt = f"Fan question during game_id={game_id} at timestep={timestep} ({match_clock(timestep)}). profile_json={json.dumps(profile)}\nQuestion: {question}"
+    style = f"Answer depth: {body.get('depth', 'balanced')}. Tone: {body.get('tone', 'neutral')}." + (" Lead with tactics." if body.get("tactical") else "")
+    prompt = f"Fan question during game_id={game_id} at timestep={timestep} ({match_clock(timestep)}). profile_json={json.dumps(profile)}\n{style}\nQuestion: {question}"
     try:
         reply = await asyncio.to_thread(ask_orchestrator, prompt)
     except BudgetExceeded:
@@ -338,7 +340,40 @@ async def ask(request: Request) -> JSONResponse:
     return JSONResponse({"answer": text, "verified": check["valid"], "validation": check, "fallbacks": fallbacks})
 
 
-routes = [Route("/api/meta", meta), Route("/api/stream", stream), Route("/api/ask", ask, methods=["POST"])]
+feedback_log: deque[dict[str, Any]] = deque(maxlen=500)
+
+
+def _preferences(body: dict[str, Any]) -> commentary.ViewerPreferences:
+    try:
+        return commentary.ViewerPreferences.model_validate(body.get("preferences") or {})
+    except ValueError:
+        return commentary.ViewerPreferences()
+
+
+async def commentary_route(request: Request) -> JSONResponse:
+    body = await request.json()
+    game_id = int(body.get("game", 0))
+    timestep = max(0, min(int(body.get("timestep", 0)), tracks()[game_id]["steps"] - 1))
+    action = body.get("action", "question")
+    if action not in commentary.Action.__args__:
+        return JSONResponse({"error": f"unknown action {action}"}, status_code=400)
+    stats = frame_at(game_id, timestep)["stats"]
+    player = body.get("player_id")
+    response = commentary.respond(game_id, timestep, _preferences(body), stats, action, (body.get("question") or "")[:500] or None, body.get("moment_id"), int(player) if player not in (None, "") else None)
+    return JSONResponse(response.model_dump())
+
+
+async def feedback_route(request: Request) -> JSONResponse:
+    body = await request.json()
+    try:
+        event = commentary.FeedbackEvent.model_validate(body.get("event") or {})
+    except ValueError as error:
+        return JSONResponse({"error": str(error)}, status_code=400)
+    feedback_log.append(event.model_dump())
+    return JSONResponse(commentary.apply_feedback(_preferences(body), event).model_dump())
+
+
+routes = [Route("/api/meta", meta), Route("/api/stream", stream), Route("/api/ask", ask, methods=["POST"]), Route("/api/commentary", commentary_route, methods=["POST"]), Route("/api/feedback", feedback_route, methods=["POST"])]
 if UI_DIR.exists():
     routes.append(Mount("/", StaticFiles(directory=UI_DIR, html=True)))
 app = Starlette(routes=routes, middleware=[Middleware(CORSMiddleware, allow_origins=["http://tauri.localhost", "https://tauri.localhost", "tauri://localhost"], allow_methods=["GET", "POST"], allow_headers=["content-type"])])

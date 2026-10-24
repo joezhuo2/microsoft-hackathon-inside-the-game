@@ -1,0 +1,404 @@
+{
+  "agents/foundry_agents.py": {
+    "mtime": 1792809130.148019,
+    "seen": 1792860125.6386704,
+    "ast_hash": "997c6513631d295401c8fb1ba0f34b0b",
+    "semantic_hash": ""
+  },
+  "agents/orchestrator/deploy.py": {
+    "mtime": 1792809130.1496713,
+    "seen": 1792860125.6386828,
+    "ast_hash": "0a3c491dc0e8eacc6649ae58d2c5c048",
+    "semantic_hash": ""
+  },
+  "agents/orchestrator/main.py": {
+    "mtime": 1792809130.1518135,
+    "seen": 1792860125.6386878,
+    "ast_hash": "a4f44f12921c8f76aac920d2cddde411",
+    "semantic_hash": ""
+  },
+  "data/roster.json": {
+    "mtime": 1792809130.1532748,
+    "seen": 1792860125.6386898,
+    "ast_hash": "367d9980203e13d25849a6d5042d02f8",
+    "semantic_hash": ""
+  },
+  "overlay/package.json": {
+    "mtime": 1792858511.3429484,
+    "seen": 1792860125.6386921,
+    "ast_hash": "10591f3cdcd31fb69482f9e7a25182c0",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/Cargo.toml": {
+    "mtime": 1792858511.34727,
+    "seen": 1792860125.6386936,
+    "ast_hash": "840e208b27116170038e489d3db45437",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/build.rs": {
+    "mtime": 1792858511.3501165,
+    "seen": 1792860125.6386957,
+    "ast_hash": "667702979da61fdc96948886b7cd7a33",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/capabilities/default.json": {
+    "mtime": 1792858511.3505993,
+    "seen": 1792860125.6386971,
+    "ast_hash": "41108270ec8e25108026d9132cd5c5ad",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/src/main.rs": {
+    "mtime": 1792858511.3797977,
+    "seen": 1792860125.638699,
+    "ast_hash": "22b0056cbdabc285a62a8b5eaf5bec87",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/tauri.conf.json": {
+    "mtime": 1792858511.3816352,
+    "seen": 1792860125.6387005,
+    "ast_hash": "284aa2fcd3751f5564a350b6ac9ef017",
+    "semantic_hash": ""
+  },
+  "overlay/ui/app.js": {
+    "mtime": 1792859412.171146,
+    "seen": 1792860125.6387026,
+    "ast_hash": "a87fadd01ace4ce4a735309eac58400b",
+    "semantic_hash": ""
+  },
+  "overlay/ui/themes.js": {
+    "mtime": 1792859412.1842928,
+    "seen": 1792860125.6387043,
+    "ast_hash": "136d088af7f0f38280ce8dd808a00728",
+    "semantic_hash": ""
+  },
+  "pyproject.toml": {
+    "mtime": 1792809074.7855115,
+    "seen": 1792860125.638706,
+    "ast_hash": "f1a0a0746b6af2a268c69db3e5baa38a",
+    "semantic_hash": ""
+  },
+  "schemas/overlay_cue.schema.json": {
+    "mtime": 1792859412.1867666,
+    "seen": 1792860125.6387079,
+    "ast_hash": "af8999e7b3c601404b7d2dd113326bd0",
+    "semantic_hash": ""
+  },
+  "scripts/prewarm_cache.py": {
+    "mtime": 1792859866.918985,
+    "seen": 1792860125.6387095,
+    "ast_hash": "b6df8f57f2b0570cb361d1c2ae9e9398",
+    "semantic_hash": ""
+  },
+  "scripts/push_image.py": {
+    "mtime": 1792859866.918985,
+    "seen": 1792860125.638711,
+    "ast_hash": "efbe200a3751cd258602e0c4d206867b",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/__init__.py": {
+    "mtime": 1792809074.7855115,
+    "seen": 1792860125.6387126,
+    "ast_hash": "ebe88b772864d87a576e9aff90b848b1",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/__main__.py": {
+    "mtime": 1792809074.7855115,
+    "seen": 1792860125.638714,
+    "ast_hash": "3a7af0b9c2d88b6e1527b7a273baef84",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/cli.py": {
+    "mtime": 1792809074.7855115,
+    "seen": 1792860125.6387157,
+    "ast_hash": "9a85a38e7968be7488d0f08b3290b964",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/commentary.py": {
+    "mtime": 1792859980.2825227,
+    "seen": 1792860125.6387174,
+    "ast_hash": "bbc8b98be4e957a156ab1f55969ae21e",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/config.py": {
+    "mtime": 1792809074.7855115,
+    "seen": 1792860125.6387198,
+    "ast_hash": "d445630b96608ef13888b07af7966524",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/dashboard.py": {
+    "mtime": 1792809074.7855115,
+    "seen": 1792860125.6387212,
+    "ast_hash": "26adfbbd933613d1150ecf85c10a8988",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/data_loader.py": {
+    "mtime": 1792809074.7855115,
+    "seen": 1792860125.6387239,
+    "ast_hash": "965ce46e4d4f0fda21071d7ff06536c6",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/event_detection.py": {
+    "mtime": 1792809074.7923582,
+    "seen": 1792860125.6387253,
+    "ast_hash": "152db3d2deb62132fd5bb2f2195b91d2",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/export.py": {
+    "mtime": 1792809074.793368,
+    "seen": 1792860125.638727,
+    "ast_hash": "e9dd5e760318effa95adb18dc8852922",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/match_intelligence.py": {
+    "mtime": 1792809074.794936,
+    "seen": 1792860125.6387286,
+    "ast_hash": "e554a5e51958b00d1a29d8d720343000",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/mcp_server.py": {
+    "mtime": 1792809130.1568491,
+    "seen": 1792860125.6387305,
+    "ast_hash": "699b9f5ce05043d0cca6a93e85cd7fe1",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/overlay_cues.py": {
+    "mtime": 1792859412.1897442,
+    "seen": 1792860125.638732,
+    "ast_hash": "8eff26f01711f33eaf5fc934d0748264",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/pitch_control.py": {
+    "mtime": 1792809074.794936,
+    "seen": 1792860125.6387339,
+    "ast_hash": "6c1dcf4e8217524e7c26add4497ff4c1",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/player_stats.py": {
+    "mtime": 1792809074.794936,
+    "seen": 1792860125.6387355,
+    "ast_hash": "a58d167fd8e34b14c6ae7c999a590a43",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/possession.py": {
+    "mtime": 1792809074.794936,
+    "seen": 1792860125.6387372,
+    "ast_hash": "a3f555634ac80fc9ee4e587448d2b982",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/preprocessing.py": {
+    "mtime": 1792809074.794936,
+    "seen": 1792860125.6387389,
+    "ast_hash": "c6772ea6a7097541a25fc55f3201f1d8",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/quality_checks.py": {
+    "mtime": 1792809074.7982333,
+    "seen": 1792860125.6387408,
+    "ast_hash": "84954c2e94ba7c0e419eac3c364ddd09",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/replay_server.py": {
+    "mtime": 1792859999.3330102,
+    "seen": 1792860125.6387422,
+    "ast_hash": "190e61ecdb6ae07df8da517ffd04e59e",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/team_stats.py": {
+    "mtime": 1792809074.7982333,
+    "seen": 1792860125.6387439,
+    "ast_hash": "51d100a43f60450a885f9b9e8e9cd94a",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/tracking_features.py": {
+    "mtime": 1792809074.7982333,
+    "seen": 1792860125.6387455,
+    "ast_hash": "7d79a65e25bdf71dfe84af6402a0b38e",
+    "semantic_hash": ""
+  },
+  "src/football_analytics/value_models.py": {
+    "mtime": 1792809074.8007305,
+    "seen": 1792860125.6387472,
+    "ast_hash": "04f20ddbf0ff67e5fdf72a9b9fa57b51",
+    "semantic_hash": ""
+  },
+  "tests/test_mcp_server.py": {
+    "mtime": 1792809130.1579247,
+    "seen": 1792860125.638765,
+    "ast_hash": "5d779418e274f4e1d25568c3ca500c42",
+    "semantic_hash": ""
+  },
+  "tests/test_overlay_cues.py": {
+    "mtime": 1792859412.1939485,
+    "seen": 1792860125.6387668,
+    "ast_hash": "a9cad3da96c88ce97eee877049af7031",
+    "semantic_hash": ""
+  },
+  "tests/test_pipeline.py": {
+    "mtime": 1792809074.801742,
+    "seen": 1792860125.6387687,
+    "ast_hash": "a234fb030eca9e25dd97b21aee54f2a0",
+    "semantic_hash": ""
+  },
+  "tests/test_replay_server.py": {
+    "mtime": 1792859866.9269822,
+    "seen": 1792860125.6387703,
+    "ast_hash": "d39178999795ccef5e332a312ba36a91",
+    "semantic_hash": ""
+  },
+  "DATA_DICTIONARY.md": {
+    "mtime": 1792809074.4181328,
+    "seen": 1792860125.6387722,
+    "ast_hash": "fc841e4ff7ba8e7725c75d2523e8c586",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1792859866.878549,
+    "seen": 1792860125.6387737,
+    "ast_hash": "454d859caee110e118c2b4bdba2a576d",
+    "semantic_hash": ""
+  },
+  "agents/orchestrator/requirements.txt": {
+    "mtime": 1792809130.1522176,
+    "seen": 1792860125.6387763,
+    "ast_hash": "110085bae3911aa26db4098570c40ed3",
+    "semantic_hash": ""
+  },
+  "config.yaml": {
+    "mtime": 1792809074.4181328,
+    "seen": 1792860125.638778,
+    "ast_hash": "e9d448272977283f8294055d8b31aa1f",
+    "semantic_hash": ""
+  },
+  "football_event_detection_parameters_pitch120x80.yaml": {
+    "mtime": 1792809074.778267,
+    "seen": 1792860125.6387796,
+    "ast_hash": "29f4b41ca07711cdaaefa4b822bf7487",
+    "semantic_hash": ""
+  },
+  "football_tracking_parameter_analysis.md": {
+    "mtime": 1792809074.7840314,
+    "seen": 1792860125.638781,
+    "ast_hash": "e6b763a5d53f3dcca7390560150c5e8c",
+    "semantic_hash": ""
+  },
+  "overlay/ui/index.html": {
+    "mtime": 1792859412.171146,
+    "seen": 1792860125.638783,
+    "ast_hash": "f415d2bba0cef3f7e2e683f106e614e1",
+    "semantic_hash": ""
+  },
+  "requirements-mcp.txt": {
+    "mtime": 1792809130.154275,
+    "seen": 1792860125.638785,
+    "ast_hash": "583be689913ba2a394c70e6cd9699aea",
+    "semantic_hash": ""
+  },
+  "requirements-replay.txt": {
+    "mtime": 1792858511.3866127,
+    "seen": 1792860125.6387863,
+    "ast_hash": "54324f195e28012fd50ef888f91ee73c",
+    "semantic_hash": ""
+  },
+  "requirements.txt": {
+    "mtime": 1792809074.7855115,
+    "seen": 1792860125.6387877,
+    "ast_hash": "053ea570a66d1b935a326c98833f5174",
+    "semantic_hash": ""
+  },
+  "overlay/app-icon.png": {
+    "mtime": 1792858511.3374527,
+    "seen": 1792860125.6387894,
+    "ast_hash": "70b64d95e61cbb5cd312f43792367c86",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/icons/128x128.png": {
+    "mtime": 1792858511.3505993,
+    "seen": 1792860125.6387908,
+    "ast_hash": "bac6b923431fb4b8bfdc30b5d8c15f99",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/icons/128x128@2x.png": {
+    "mtime": 1792858511.3505993,
+    "seen": 1792860125.6387928,
+    "ast_hash": "a2011d46882ea1314d68c4f0b75173bf",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/icons/32x32.png": {
+    "mtime": 1792858511.3505993,
+    "seen": 1792860125.6387942,
+    "ast_hash": "f00ae2b2eab915caceb8804ac1894828",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/icons/64x64.png": {
+    "mtime": 1792858511.3593388,
+    "seen": 1792860125.6387959,
+    "ast_hash": "cf48a61e36c042474e53116b56eee6f7",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/icons/Square107x107Logo.png": {
+    "mtime": 1792858511.3608553,
+    "seen": 1792860125.6387973,
+    "ast_hash": "b7deeb75da674e0474dedab29bfc8e15",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/icons/Square142x142Logo.png": {
+    "mtime": 1792858511.3608553,
+    "seen": 1792860125.638799,
+    "ast_hash": "f88ecb062282d04d5877ce36dc4d50cb",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/icons/Square150x150Logo.png": {
+    "mtime": 1792858511.3641346,
+    "seen": 1792860125.6388004,
+    "ast_hash": "17f4789175a985353b480926830c6740",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/icons/Square284x284Logo.png": {
+    "mtime": 1792858511.3650634,
+    "seen": 1792860125.6388018,
+    "ast_hash": "9d024d0ad2e8c2d57e72a768993632f8",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/icons/Square30x30Logo.png": {
+    "mtime": 1792858511.3678367,
+    "seen": 1792860125.6388037,
+    "ast_hash": "6f6efdaec0cbb9843e22d14cbfa94add",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/icons/Square310x310Logo.png": {
+    "mtime": 1792858511.3691528,
+    "seen": 1792860125.6388054,
+    "ast_hash": "d3af7d1e06563064c9e535223c4cb635",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/icons/Square44x44Logo.png": {
+    "mtime": 1792858511.3691528,
+    "seen": 1792860125.6388073,
+    "ast_hash": "debf865af3eb67a08620c0b82306bf1a",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/icons/Square71x71Logo.png": {
+    "mtime": 1792858511.3691528,
+    "seen": 1792860125.6388092,
+    "ast_hash": "53b1bafd01cec9bc6569fe4a721d1279",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/icons/Square89x89Logo.png": {
+    "mtime": 1792858511.3729947,
+    "seen": 1792860125.6388109,
+    "ast_hash": "bfd57338eb6f10a959ae50449dd97bc6",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/icons/StoreLogo.png": {
+    "mtime": 1792858511.3729947,
+    "seen": 1792860125.6388128,
+    "ast_hash": "ab9e045e62ccf50130d7618987422df0",
+    "semantic_hash": ""
+  },
+  "overlay/src-tauri/icons/icon.png": {
+    "mtime": 1792858511.3729947,
+    "seen": 1792860125.6388142,
+    "ast_hash": "155391c482a0ea2f2e931c609c6c8670",
+    "semantic_hash": ""
+  }
+}
