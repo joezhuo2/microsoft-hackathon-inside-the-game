@@ -90,6 +90,21 @@ az containerapp update -n ca-match-mcp -g rg-matchintel --image <registry>.azure
 
 The `Dockerfile` builds the same image where Docker or ACR Tasks are available.
 
+## Live overlay
+
+`python -m football_analytics.replay_server` (port 8765, dependencies in `requirements-replay.txt`) replays the tracking data as a live feed over server-sent events. Every key moment gets an instant overlay built from the data and checked by `validate_overlay`. High-importance moments are then sent to the `match-orchestrator` agent in the background, and its personalized overlay appears in the insight feed once it passes the same gate. It uses your `az login` for Foundry. Set `ENRICH=0` to run without agents. Finished agent results are cached in `build/enrich_cache/`.
+
+The same UI (`overlay/ui/`) runs two ways:
+
+- Web: open `http://127.0.0.1:8765` while the replay server runs.
+- Desktop overlay: a transparent, always-on-top Tauri 2 window over any screen. `Ctrl+Shift+O` switches between click-through and interactive mode.
+
+```bash
+cd overlay
+npm install
+npm run dev
+```
+
 ## Testing
 
 ```bash
