@@ -61,6 +61,36 @@ def tracks() -> dict[int, dict[str, Any]]:
     return games
 
 
+@lru_cache(maxsize=8)
+def running_stats(game_id: int) -> dict[str, np.ndarray]:
+    steps = tracks()[game_id]["steps"]
+    events = intel._game("events", game_id)
+    tags = intel._game("player_tags", game_id)
+
+    def cumulative(rows: pd.DataFrame, column: str = "start_timestep") -> np.ndarray:
+        counts = np.zeros((steps, 2))
+        for team in (0, 1):
+            at = rows.loc[rows["TEAM_ID"] == team, column].clip(0, steps - 1).astype(int)
+            np.add.at(counts[:, team], at.to_numpy(), 1)
+        return np.cumsum(counts, axis=0)
+
+    passes = cumulative(events[events["event_type"] == "pass_attempt"])
+    attempts = passes + cumulative(events[events["event_type"] == "incomplete_pass_candidate"])
+    rhythm = intel._game("match_rhythm", game_id)
+    share = np.full(steps, 0.5)
+    for _, window in rhythm.iterrows():
+        started = rhythm[rhythm["start_timestep"] <= window["start_timestep"]]
+        share[int(window["start_timestep"]):] = started["possession_share_team0"].mean()
+    return {
+        "possession": np.stack([share, 1 - share], axis=1) * 100,
+        "shots": cumulative(events[events["event_type"] == "shot_candidate"]),
+        "passes": passes,
+        "pass_accuracy": np.divide(passes * 100, attempts, out=np.zeros_like(passes), where=attempts > 0),
+        "ball_wins": cumulative(events[events["event_type"] == "interception_candidate"]),
+        "sprints": cumulative(tags[tags["tag_type"] == "sprint"]),
+    }
+
+
 def frame_at(game_id: int, timestep: int) -> dict[str, Any]:
     game = tracks()[game_id]
     t = min(timestep, game["steps"] - 1)
@@ -74,6 +104,7 @@ def frame_at(game_id: int, timestep: int) -> dict[str, Any]:
         "ball": next((p[1:] for p in points if p[0] == -1), None),
         "players": [p for p in points if p[0] != -1],
         "rhythm": None if window.empty else {k: (v.item() if hasattr(v, "item") else v) for k, v in window.iloc[0][["rhythm", "control_index", "momentum_team0", "possession_share_team0"]].items()},
+        "stats": {name: [round(float(v)) for v in values[t]] for name, values in running_stats(game_id).items()},
     }
 
 
