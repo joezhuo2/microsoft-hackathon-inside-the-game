@@ -1,0 +1,82 @@
+{
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "persona": {
+      "default": "casual",
+      "title": "Persona",
+      "type": "string"
+    },
+    "language": {
+      "default": "en",
+      "title": "Language",
+      "type": "string"
+    },
+    "favorite_club_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Favorite Club Id"
+    },
+    "favorite_player_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Favorite Player Id"
+    },
+    "metric_focus": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Metric Focus"
+    },
+    "depth": {
+      "default": "balanced",
+      "enum": [
+        "headlines",
+        "balanced",
+        "deep"
+      ],
+      "title": "Depth",
+      "type": "string"
+    },
+    "tone": {
+      "default": "neutral",
+      "enum": [
+        "neutral",
+        "emotional"
+      ],
+      "title": "Tone",
+      "type": "string"
+    },
+    "tactical": {
+      "default": false,
+      "title": "Tactical",
+      "type": "boolean"
+    }
+  },
+  "title": "ViewerPreferences",
+  "type": "object"
+}

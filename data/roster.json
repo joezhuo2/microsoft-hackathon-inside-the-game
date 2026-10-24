@@ -26,6 +26,12 @@
     "107": {"name": "Felipe Arantes",    "short": "Arantes",    "number": 8,  "role": "central midfield", "nationality": "BRA"},
     "108": {"name": "Ewan McTavish",     "short": "McTavish",   "number": 6,  "role": "central midfield", "nationality": "SCO"},
     "109": {"name": "Andrei Petrescu",   "short": "Petrescu",   "number": 10, "role": "central midfield", "nationality": "ROU"},
-    "110": {"name": "Liam Fairbanks",    "short": "Fairbanks",  "number": 11, "role": "left midfield",    "nationality": "USA"}
+    "110": {"name": "Liam Fairbanks",    "short": "Fairbanks",  "number": 11, "role": "left midfield",    "nationality": "USA"},
+    "11":  {"name": "Callum Rudge",      "short": "Rudge",      "number": 12, "role": "goalkeeper",       "nationality": "ENG", "bench": true, "synthetic": true},
+    "12":  {"name": "Idris Mbeki",       "short": "Mbeki",      "number": 14, "role": "central midfield", "nationality": "RSA", "bench": true, "synthetic": true},
+    "13":  {"name": "Pavel Novotny",     "short": "Novotny",    "number": 15, "role": "central front",    "nationality": "CZE", "bench": true, "synthetic": true},
+    "111": {"name": "Declan Harrow",     "short": "Harrow",     "number": 12, "role": "goalkeeper",       "nationality": "IRL", "bench": true, "synthetic": true},
+    "112": {"name": "Tiago Marques",     "short": "Marques",    "number": 14, "role": "right midfield",   "nationality": "POR", "bench": true, "synthetic": true},
+    "113": {"name": "Soren Lindahl",     "short": "Lindahl",    "number": 15, "role": "centre back",      "nationality": "DEN", "bench": true, "synthetic": true}
   }
 }

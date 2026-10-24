@@ -29,8 +29,17 @@ const STATS = [
 ];
 
 const STALE_TIMESTEPS = 300;
+const STUDIO = new URLSearchParams(location.search).get("view") === "studio";
+const STUDIO_MAX = 60;
 const MAX_CHIPS = 2;
-const state = { roster: null, source: null, frames: [], lastT: 0, paused: false, alertTimer: null, alertToken: 0, alertQueue: [], alertBusy: false, recent: [], entries: new Map(), moments: new Map(), stats: {}, score: [0, 0] };
+const PREF_KEY = "match-prefs";
+const DEPTH_PRIORITIES = { headlines: ["high"], balanced: ["high", "medium"], deep: ["high", "medium", "low"] };
+const ACTION_QUESTIONS = { explain_more: "Explain more", show_tactics: "Show tactics", simpler: "Make it simpler", numbers: "Give me the numbers", why: "Why did this matter?" };
+const REPLY_ACTIONS = Object.fromEntries(Object.entries(ACTION_QUESTIONS).map(([action, text]) => [text, action]));
+const FEEDBACK = [["too_basic", "Too basic"], ["too_technical", "Too technical"], ["more_tactical", "More tactical"], ["more_emotional", "More emotional"], ["follow_player", "Follow this player"]];
+let savedPrefs = {};
+try { savedPrefs = JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch { savedPrefs = {}; }
+const state = { studio: { seq: 0, items: [], onAir: true, minConfidence: 0, autoAir: { high: true, medium: true, low: false } }, prefs: { depth: "balanced", tone: "neutral", tactical: false, ...savedPrefs }, askToken: 0, last: null, roster: null, source: null, frames: [], lastT: 0, paused: false, alertTimer: null, alertToken: 0, alertQueue: [], alertBusy: false, recent: [], entries: new Map(), moments: new Map(), stats: {}, score: [0, 0] };
 
 document.body.classList.add(tauri ? "tauri" : "web");
 
@@ -68,8 +77,16 @@ function profile() {
   return { persona: $("persona").value, language: $("language").value, club: $("club").value, player: $("player").value, focus: $("focus").value };
 }
 
+const PERSONAS = { casual: "Casual fan", superfan: "Superfan", analyst: "Tactical analyst", fantasy: "Fantasy player", producer: "Studio producer", newcomer: "New to football" };
+const PERSONA_DEPTH = { analyst: "deep", producer: "deep", newcomer: "headlines" };
+
 function analyst() {
-  return $("persona").value === "analyst";
+  return !["casual", "newcomer"].includes($("persona").value);
+}
+
+function setPersona(persona) {
+  $("persona").value = persona;
+  $("persona").dispatchEvent(new Event("change"));
 }
 
 function status(text, error = false) {
@@ -126,7 +143,24 @@ function clubName(teamId) {
 }
 
 function visiblePriorities() {
-  return analyst() ? ["high", "medium", "low"] : ["high", "medium"];
+  return DEPTH_PRIORITIES[state.prefs.depth] || DEPTH_PRIORITIES.balanced;
+}
+
+function savePrefs() {
+  try { localStorage.setItem(PREF_KEY, JSON.stringify(state.prefs)); } catch { /* storage unavailable */ }
+}
+
+function preferences() {
+  const club = $("club").value, player = $("player").value;
+  return { persona: $("persona").value, language: $("language").value, favorite_club_id: club === "" ? null : Number(club), favorite_player_id: player === "" ? null : Number(player), metric_focus: $("focus").value || null, ...state.prefs };
+}
+
+function post(path, body) {
+  return fetch(`${API}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(async (response) => {
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || response.status);
+    return data;
+  });
 }
 
 function compactMode() {
@@ -138,7 +172,31 @@ function compactMode() {
 function routeCue(data) {
   const cue = data.cue;
   if (!cue) return showAlert(data);
+  if (STUDIO) return studioCue(data);
   if (!visiblePriorities().includes(cue.priority)) return;
+  airCue(data);
+}
+
+function studioCue(data) {
+  const cue = data.cue;
+  const s = state.studio;
+  if (s.items.some((item) => item.cue.event_id === cue.event_id && item.cue.timestep === cue.timestep)) return;
+  const item = { id: ++s.seq, cue, data, status: "queued" };
+  s.items.unshift(item);
+  s.items.length = Math.min(s.items.length, STUDIO_MAX);
+  if (s.onAir && s.autoAir[cue.priority] && cue.confidence >= s.minConfidence / 100) airItem(item);
+  else renderQueue();
+}
+
+function airItem(item) {
+  item.status = "aired";
+  airCue(item.data);
+  renderQueue();
+}
+
+function airCue(data) {
+  const cue = data.cue;
+  sting(cue);
   const compact = compactMode();
   state.recent.push(performance.now());
   if (cue.priority === "high" && !compact) {
@@ -273,10 +331,56 @@ function showEnriched(data) {
   }, 300);
 }
 
-function splash(text, ms) {
+const STINGS = { goal_threat: "Goal threat", momentum_swing: "Momentum shift", player_spotlight: "Player spotlight", control_index: "Tactical reset", chaos_index: "Tactical reset" };
+const STING_GAP_MS = 12000;
+let splashTimer = null;
+let lastSting = -STING_GAP_MS;
+
+function splash(text, ms, { accent = null, small = false } = {}) {
+  clearTimeout(splashTimer);
   $("splashText").textContent = text;
+  $("splash").classList.toggle("sting", small);
+  $("splash").style.setProperty("--accent", accent || "#fff");
   $("splash").classList.add("show");
-  setTimeout(() => $("splash").classList.remove("show"), ms);
+  splashTimer = setTimeout(() => $("splash").classList.remove("show"), ms);
+  return new Promise((resolve) => setTimeout(resolve, ms + 400));
+}
+
+function sting(cue) {
+  const text = STINGS[cue.theme];
+  const now = performance.now();
+  if (!text || state.splashBusy || now - lastSting < STING_GAP_MS) return;
+  lastSting = now;
+  splash(text, 1300, { accent: theme(cue.theme).accent, small: true });
+}
+
+async function sequence(steps) {
+  state.splashBusy = true;
+  for (const [text, ms] of steps) await splash(text, ms);
+  state.splashBusy = false;
+}
+
+function renderQueue() {
+  const s = state.studio;
+  $("sCount").textContent = `${s.items.length}`;
+  $("sQueue").replaceChildren(...s.items.map((item) => {
+    const cue = item.cue;
+    const look = theme(cue.theme);
+    const dropped = item.status === "dropped";
+    return el("div", { class: `q-row ${item.status}`, "data-id": item.id },
+      el("span", { class: "q-clock" }, cue.match_clock),
+      el("span", { class: `q-pri ${cue.priority}`, style: `color: ${look.accent}` }, cue.priority),
+      el("span", { class: "q-insight", dir: "auto", title: cue.primary_insight }, `${look.label}: ${cue.primary_insight}`),
+      el("span", { class: "q-actions" },
+        el("button", { type: "button", "data-air": "", ...(dropped || item.status === "aired" ? { disabled: "" } : {}) }, item.status === "aired" ? "On air" : "Air"),
+        " ",
+        el("button", { type: "button", "data-drop": "", ...(item.status === "aired" ? { disabled: "" } : {}) }, dropped ? "Dropped" : "Drop")),
+      el("span", { class: "q-meta" }, `conf ${Math.round(cue.confidence * 100)}% · ${cue.evidence} · ${cue.duration_ms / 1000}s · ts ${cue.timestep}${item.data.cue_validation?.valid === false ? " · failed check" : ""}`));
+  }));
+}
+
+function clockMinutes(clock) {
+  return Number.parseInt(clock, 10);
 }
 
 function applyFrame(f) {
@@ -293,6 +397,10 @@ function applyFrame(f) {
   });
   state.score = f.score;
   $("clock").textContent = f.clock;
+  if (!state.halfDone && clockMinutes(f.clock) >= 45) {
+    state.halfDone = true;
+    sequence([[`Half time ${f.score[0]}–${f.score[1]}`, 3000], ["Second half", 2200]]);
+  }
   if (f.rhythm) {
     $("rhythm").textContent = f.rhythm.rhythm;
     $("rhythm").className = `tag ${f.rhythm.rhythm}`;
@@ -320,7 +428,12 @@ function connect(fromStart = false) {
   source.addEventListener("start", (e) => {
     const s = JSON.parse(e.data);
     status(`Game ${s.game_id} live · ${s.enrich ? "AI analysis on" : "instant overlays only"}`);
-    if (fromStart) splash("Kick off", 2600);
+    if (fromStart) {
+      state.halfDone = false;
+      state.studio.items = [];
+      renderQueue();
+      splash("Kick off", 2600);
+    }
   });
   source.addEventListener("frame", (e) => applyFrame(JSON.parse(e.data)));
   source.addEventListener("moment", (e) => {
@@ -340,7 +453,7 @@ function connect(fromStart = false) {
   source.addEventListener("end", (e) => {
     const f = JSON.parse(e.data);
     applyFrame(f);
-    splash(`Full time ${f.score[0]}–${f.score[1]}`, 4200);
+    sequence([[`Full time ${f.score[0]}–${f.score[1]}`, 3600], ["Match recap", 2000]]).then(() => askMatch("question", "Give me the match recap so far.", null, false));
     status("Full time. Finishing analysis…");
   });
   source.addEventListener("done", () => {
@@ -440,7 +553,7 @@ async function ask(question) {
   $("answerWrap").classList.add("open");
   $("answer").replaceChildren(el("span", { class: "tag ghost dots" }, "agents working"));
   try {
-    const response = await fetch(`${API}/api/ask`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game: $("game").value, timestep: state.lastT, question, ...profile() }) });
+    const response = await fetch(`${API}/api/ask`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game: $("game").value, timestep: state.lastT, question, ...profile(), depth: state.prefs.depth, tone: state.prefs.tone, tactical: state.prefs.tactical }) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || response.status);
     const text = el("div", { dir: "auto" });
@@ -457,6 +570,81 @@ async function ask(question) {
 function setPanel(open) {
   $("panelWrap").classList.toggle("open", open);
   $("dockBtn").setAttribute("aria-expanded", String(open));
+  if (open) setAsk(false);
+}
+
+function setAsk(open) {
+  $("askWrap").classList.toggle("open", open);
+  $("askBtn").setAttribute("aria-expanded", String(open));
+  if (open && $("panelWrap").classList.contains("open")) setPanel(false);
+}
+
+function rev(tag, text) {
+  const node = el(tag, { dir: "auto" });
+  reveal(node, text);
+  return node;
+}
+
+function section(title, ...body) {
+  return [el("h4", {}, title), ...body];
+}
+
+function renderCommentary(r, note) {
+  $("commentary").replaceChildren(...[
+    el("h3", {}, r.headline, el("span", { class: "tag ghost" }, r.match_clock)),
+    r.observed.length ? section("Observed", el("ul", {}, r.observed.map((t) => rev("li", t)))) : null,
+    section("Interpretation", rev("p", r.interpretation)),
+    r.projection ? section("Projection", rev("p", r.projection)) : null,
+    el("div", { class: "trail" }, r.context_trail.map((t) => el("span", { class: "tag ghost", title: t.kind }, t.label))),
+    el("div", { class: "replies" }, r.quick_replies.map((q) => el("button", { type: "button", "data-reply": q }, q))),
+    el("div", { class: "replies" }, FEEDBACK.map(([kind, text]) => el("button", { type: "button", "data-feedback": kind }, text))),
+    note ? el("p", { class: "note" }, note) : null,
+  ].flat().filter(Boolean));
+}
+
+function agentQuestion(action, question, playerId) {
+  if (question) return question;
+  if (action !== "focus_player") return ACTION_QUESTIONS[action];
+  const id = playerId ?? ($("player").value || null);
+  const person = id == null ? null : state.roster?.players?.[id];
+  return person ? `Player focus on ${person.name} (player_id ${id}).` : "Focus on the player at the centre of the latest moment.";
+}
+
+async function askMatch(action, question = null, playerId = null, withAgent = true, note = null) {
+  setAsk(true);
+  const token = ++state.askToken;
+  $("commentary").replaceChildren(el("span", { class: "tag ghost dots" }, "analysing"));
+  const agent = withAgent && $("enrich").checked && !$("enrich").disabled;
+  if (agent) $("answerWrap").classList.remove("open");
+  try {
+    const r = await post("/api/commentary", { game: $("game").value, timestep: state.lastT, action, question, player_id: playerId, preferences: preferences() });
+    if (token !== state.askToken) return;
+    state.last = r;
+    renderCommentary(r, note);
+  } catch (error) {
+    if (token === state.askToken) $("commentary").textContent = `Could not load commentary (${error.message}).`;
+    return;
+  }
+  if (agent) ask(agentQuestion(action, question, playerId));
+}
+
+async function sendFeedback(kind) {
+  const r = state.last;
+  if (!r) return;
+  const player = r.player_id ?? ($("player").value || null);
+  try {
+    const data = await post("/api/feedback", { preferences: preferences(), event: { kind, game_id: Number($("game").value), timestep: state.lastT, response_id: r.response_id, player_id: player == null ? null : Number(player) } });
+    const { depth, tone, tactical, favorite_player_id: favorite } = data.preferences;
+    state.prefs = { depth, tone, tactical };
+    savePrefs();
+    if (favorite != null && String(favorite) !== $("player").value) {
+      $("player").value = String(favorite);
+      $("player").dispatchEvent(new Event("change"));
+    }
+    askMatch(r.action, r.question, r.player_id, false, data.effects.join(" "));
+  } catch (error) {
+    status(`Feedback failed (${error.message}).`, true);
+  }
 }
 
 let lastRegions = "";
@@ -495,7 +683,11 @@ async function init() {
     return;
   }
   for (const id of controls) $(id).addEventListener("change", () => connect(id === "game"));
-  $("persona").addEventListener("change", applyPersona);
+  $("persona").addEventListener("change", () => {
+    applyPersona();
+    state.prefs.depth = PERSONA_DEPTH[$("persona").value] || "balanced";
+    savePrefs();
+  });
   $("club").addEventListener("change", applyPersona);
   $("player").addEventListener("change", () => {
     const p = state.roster.players[$("player").value];
@@ -509,17 +701,61 @@ async function init() {
     $("pause").textContent = state.paused ? "Resume" : "Pause";
     if (state.paused) { state.source?.close(); status("Paused"); } else connect();
   };
-  $("focusBtn").onclick = () => {
-    const id = $("player").value;
-    if (!id) return status("Pick a player first.", true);
-    ask(`Player focus on ${state.roster.players[id].name} (player_id ${id}).`);
+  if (STUDIO) {
+    document.body.classList.add("studio");
+    $("studio").hidden = false;
+    $("sOnAir").onchange = (e) => { state.studio.onAir = e.target.checked; };
+    document.querySelectorAll("[data-auto]").forEach((box) => box.onchange = (e) => { state.studio.autoAir[box.dataset.auto] = e.target.checked; });
+    $("sConf").oninput = (e) => {
+      state.studio.minConfidence = Number(e.target.value);
+      $("sConfOut").textContent = `${e.target.value}%`;
+    };
+    $("sQueue").onclick = (e) => {
+      const id = Number(e.target.closest("[data-id]")?.dataset.id);
+      const item = state.studio.items.find((x) => x.id === id);
+      if (!item) return;
+      if (e.target.closest("[data-air]") && item.status !== "dropped") airItem(item);
+      if (e.target.closest("[data-drop]") && item.status !== "aired") {
+        item.status = "dropped";
+        renderQueue();
+      }
+    };
+  }
+  $("askBtn").onclick = () => setAsk(!$("askWrap").classList.contains("open"));
+  $("focusBtn").onclick = () => askMatch("focus_player", null, Number($("player").value) || null);
+  $("recapBtn").onclick = () => askMatch("question", "Give me the match recap so far.");
+  $("askChips").onclick = (e) => {
+    const action = e.target.closest("[data-action]")?.dataset.action;
+    if (action) askMatch(action, null, action === "focus_player" ? Number($("player").value) || null : null);
   };
-  $("recapBtn").onclick = () => ask("Give me the match recap so far.");
+  $("commentary").onclick = (e) => {
+    const reply = e.target.closest("[data-reply]")?.dataset.reply;
+    const kind = e.target.closest("[data-feedback]")?.dataset.feedback;
+    if (kind) return sendFeedback(kind);
+    if (!reply) return;
+    if (reply.startsWith("Focus on ")) return askMatch("focus_player", null, state.last?.player_id ?? null);
+    askMatch(REPLY_ACTIONS[reply] || "question", REPLY_ACTIONS[reply] ? null : reply);
+  };
   $("ask").onsubmit = (e) => {
     e.preventDefault();
     const q = $("question").value.trim();
-    if (q) ask(q);
+    if (q) askMatch("question", q);
   };
+  let onboarded = false;
+  try { onboarded = Boolean(localStorage.getItem("match-onboarded")); } catch { onboarded = false; }
+  const closeOnboard = () => {
+    $("onboard").hidden = true;
+    try { localStorage.setItem("match-onboarded", "1"); } catch { /* storage unavailable */ }
+  };
+  $("onboardChoices").replaceChildren(...Object.entries(PERSONAS).map(([id, name]) => el("button", { type: "button", "data-persona": id }, name)));
+  $("onboardChoices").onclick = (e) => {
+    const persona = e.target.closest("[data-persona]")?.dataset.persona;
+    if (!persona) return;
+    setPersona(persona);
+    closeOnboard();
+  };
+  $("onboardSkip").onclick = closeOnboard;
+  $("onboard").hidden = onboarded;
   connect(true);
 }
 
