@@ -1,0 +1,263 @@
+# Starter configuration for a second agent implementing tracking-only event detection.
+# Calibration and data-derived settings are separated from provisional football heuristics.
+schema_version: 1
+source_schema: gfootball_results_games_0-2.csv
+normalized_input_schema: gfootball_results_games_0-2_pitch120x80.csv
+
+coordinate_system:
+  pitch_length_m: 120.0
+  pitch_width_m: 80.0
+  nominal_source_bounds:
+    x: [-1.0, 1.0]
+    y: [-0.42, 0.42]
+  transformation:
+    location_x: "(SOURCE_LOCATION_X + 1.0) * 60.0"
+    location_y: "(SOURCE_LOCATION_Y + 0.42) * (80.0 / 0.84)"
+    velocity_x: "SOURCE_VELOCITY_X * 60.0"
+    velocity_y: "SOURCE_VELOCITY_Y * (80.0 / 0.84)"
+  coordinate_units:
+    location_x_y: metres_on_120x80_pitch
+    velocity_x_y: metres_per_timestep_not_m_per_second
+    seconds_per_timestep: null
+    location_z: source_units_unverified
+    velocity_z: source_units_per_timestep_unverified
+  clip_locations_to_pitch: false
+  preserve_source_coordinates: true
+  source_backup_columns:
+    - SOURCE_LOCATION_X
+    - SOURCE_LOCATION_Y
+    - SOURCE_VELOCITY_X
+    - SOURCE_VELOCITY_Y
+
+entities:
+  ball_player_id: -1
+  ball_team_id: -1
+  expected_players_per_frame: 22
+  expected_ball_rows_per_frame: 1
+  expected_entities_per_frame: 23
+  player_vertical_location_sentinel: -1.0
+  player_vertical_velocity_sentinel: -1.0
+  never_use_on_ball_or_score_as_event_evidence: true
+
+attacking_direction:
+  initial_sample_inference:
+    team_0: +1  # attacks toward increasing X in opening formations in all 3 sample games
+    team_1: -1  # attacks toward decreasing X in opening formations in all 3 sample games
+  infer_from_positions_each_game: true
+  recheck_for_side_switches: true
+  use_player_role_labels: false
+  note: "Direction inference is an initial-formations heuristic; do not assume it holds for other datasets without validation."
+
+pitch_geometry:
+  boundaries_m:
+    x_min: 0.0
+    x_max: 120.0
+    y_min: 0.0
+    y_max: 80.0
+  goal_centers:
+    left: [0.0, 40.0]
+    right: [120.0, 40.0]
+  goal_width_m: 7.32                 # nominal football goal dimension; verify coordinate calibration
+  goal_height_m: 2.44                # do not use until Z units are confirmed
+  penalty_area_depth_m: 16.5        # nominal line dimensions; configurable
+  penalty_area_width_m: 40.32
+  goal_area_depth_m: 5.5
+  goal_area_width_m: 18.32
+  penalty_spot_distance_from_goal_m: 11.0
+  geometry_status: "nominal starting geometry; verify against the source simulator before treating line-based events as confirmed"
+  z_scale_to_metres: null
+  confirmed_3d_goal_intersection_enabled: false
+
+tracking_quality:
+  expected_timestep_increment: 1
+  detect_missing_frames: true
+  derivative_gap_policy: "never differentiate across missing timesteps or global reset frames"
+  player_step_displacement_reset_threshold_m: 3.0
+  global_reset_min_players_over_threshold: 8
+  global_reset_population: 22
+  ball_step_displacement_discontinuity_threshold_m: 10.0
+  global_reset_policy: "mark transition uncertain; reset velocity/acceleration derivatives and do not count teleport displacement as movement"
+  observed_sample_global_reset_frames: 40
+  observed_players_jumping_over_3m_per_reset_frame_min: 19
+  detect_out_of_bounds_without_clipping: true
+
+control_state_machine:
+  # Distances based on sample distribution; must be used with persistence and motion evidence.
+  acquisition_radius_m: 1.25
+  retention_radius_m: 2.25
+  contested_radius_m: 2.5
+  contested_player_distance_difference_max_m: 0.75
+  stable_control_min_consecutive_frames: 3
+  switch_controller_min_consecutive_frames: 3
+  release_unknown_after_frames_outside_retention: 2
+  stationary_ball_speed_threshold_m_per_timestep: 0.25
+  stationary_ball_min_frames: 3
+  states: [CONTROLLED, CONTESTED, FREE_BALL, DEAD_BALL_CANDIDATE, UNKNOWN]
+  notes:
+    - "Acquisition radius is not proof of control; require persistence and relative-motion evidence."
+    - "Prefer CONTESTED/UNKNOWN instead of arbitrarily assigning control in near ties."
+    - "ON_BALL is present in the CSV but must not be read by the event detector."
+
+primitive_event_detection:
+  touch_candidate:
+    player_ball_distance_max_m: 1.25
+    supporting_ball_delta_velocity_min_m_per_timestep: 0.5
+    supporting_turn_angle_min_degrees: 45.0
+    turn_angle_requires_speed_on_both_sides_above_m_per_timestep: 0.75
+    also_allow_on_stable_control_transition: true
+    label: TOUCH_CANDIDATE
+  ball_release_candidate:
+    controller_required: true
+    ball_speed_support_threshold_m_per_timestep: 1.0
+    controller_ball_separation_growth_min_m_over_2_frames: 0.75
+    controller_separation_exceeds_retention_radius_m: 2.25
+    separation_deadline_frames: 3
+    acceleration_or_turn_support_min_delta_velocity_m_per_timestep: 0.5
+    speed_threshold_is_supporting_not_mandatory: true
+  reception_candidate:
+    player_ball_distance_max_m: 1.25
+    stable_control_min_consecutive_frames: 3
+    must_follow_free_ball_or_release: true
+  event_linking:
+    link_release_to_first_plausible_outcome: true
+    terminate_on_next_stable_control_or_boundary_event: true
+    maximum_unresolved_event_window_frames: 30
+    if_ambiguous: "keep unresolved candidate with alternative hypotheses"
+
+movement_events:
+  carry:
+    same_controller_required: true
+    min_ball_path_length_m: 1.0
+    no_intervening_release: true
+  dribble:
+    carry_required: true
+    defender_interaction_radius_m: 2.5
+    require_relative_pass_by_or_escape_pattern: true
+    successful_take_on_requires_defender_to_be_bypassed: true
+  progressive_carry:
+    net_goalward_displacement_min_m: 10.0
+    or_cross_pitch_zone_boundary: true
+    direction_normalized_by_team_attack_direction: true
+    if_direction_unknown: "report displacement; do not label progressive"
+
+pass_subtypes:
+  ordinary_pass:
+    release_candidate_required: true
+    receiving_teammate_control_resolves_as_completed: true
+    opponent_control_resolves_as_incomplete_and_possible_interception: true
+    unresolved_loose_ball_not_automatically_incomplete: true
+  cross:
+    origin_wide_channel_depth_m: 16.0
+    end_or_path_must_enter_target_penalty_area: true
+    penalty_area_depth_m: 16.5
+    penalty_area_width_m: 40.32
+    label_as_candidate_if_intent_ambiguous: true
+  through_ball:
+    infer_defensive_line_from_opponents_at_release: true
+    require_trajectory_or_receiver_position_beyond_defensive_line: true
+    minimum_beyond_line_distance_m: 3.0
+    label_as_candidate_if_intent_ambiguous: true
+  switch_of_play:
+    lateral_displacement_min_m: 30.0
+    require_start_and_end_in_opposite_wide_channels: true
+    start_or_end_wide_channel_depth_m: 20.0
+    label_as_candidate_if_forward_diagonal_might_explain_it: true
+
+shot_and_defensive_events:
+  shot_candidate:
+    release_required: true
+    ball_direction_must_point_toward_target_goal: true
+    projected_goal_plane_intersection_y_within_goal_half_width_plus_margin: true
+    goal_half_width_m: 3.66
+    goal_plane_margin_m: 1.0
+    use_origin_angle_as_supporting_evidence: true
+    do_not_use_speed_alone: true
+  on_target:
+    output_name_without_z_calibration: PLANAR_ON_TARGET_CANDIDATE
+    confirmed_label_enabled: false
+    reason: "Z scale and crossbar-plane geometry have not been validated"
+  goal:
+    output_name_without_z_calibration: GOAL_CANDIDATE
+    requires_ball_crossing_goal_plane_and_goal-mouth_y: true
+    confirmed_label_enabled: false
+  save_candidate:
+    shot_candidate_required: true
+    infer_goalkeeper_from_spatial_position_not_ROLE: true
+    interaction_distance_m: 1.5
+    require_control_or_material_trajectory_change: true
+  blocked_shot_candidate:
+    shot_candidate_required: true
+    defender_ball_distance_m: 1.5
+    min_turn_angle_degrees: 45.0
+    min_delta_velocity_m_per_timestep: 0.5
+    distinguish_goalkeeper_when_possible: true
+  clearance_candidate:
+    likely_defender_control_before_release: true
+    ball_releases_away_from_own_goal: true
+    goalward_displacement_away_from_own_goal_min_m: 10.0
+    ball_speed_support_threshold_m_per_timestep: 1.0
+    pressure_support_distance_m: 3.0
+    intent_is_not_observable: true
+
+out_of_play_and_restarts:
+  boundary_detection:
+    pitch_bounds_m: {x: [0.0, 120.0], y: [0.0, 80.0]}
+    outside_margin_m: 0.25
+    prefer_segment_crossing_over_single_outside_frame: true
+    do_not_interpolate_across_global_reset_or_ball_discontinuity: true
+  restart_candidate:
+    evidence:
+      - boundary_crossing_or_global_reset
+      - ball_horizontal_speed_below_0.25_m_per_timestep_for_3_frames
+      - player_reformation_or_global_reset
+    global_reset_alone_confirms_event_subtype: false
+  corner_candidate:
+    require_endline_and_touchline_exit_near_same_corner: true
+    endline_margin_m: 1.5
+    touchline_margin_m: 1.5
+  throw_in_candidate:
+    require_touchline_crossing: true
+    ball_restart_location_near_touchline: true
+    endline_near_corner_exclusion_m: 1.5
+  goal_kick_candidate:
+    restart_location_in_goal_area: true
+    goal_area_depth_m: 5.5
+    goal_area_width_m: 18.32
+    prior_endline_exit_or_goal-kick-like_reset: true
+  penalty_candidate:
+    ball_near_penalty_spot_m: 1.0
+    penalty_spot_distance_from_goal_m: 11.0
+    require_goalkeeper_near_goal_line: true
+    require_other_players_outside_penalty_area_pattern: true
+  free_kick_candidate:
+    stoppage_or_global_reset_required: true
+    exclude_confident_corner_throwin_goalkick_penalty_kickoff: true
+    never_infer_foul_from_tracking_only: true
+  kickoff_candidate:
+    ball_distance_from_pitch_center_m: 1.5
+    require_global_reset_or_stationary_ball: true
+    require_opposing_half_formation: true
+  other_restart:
+    use_when_stoppage_supported_but_subtype_not_separable: true
+
+classification_policy:
+  confidence_levels: [HIGH, MEDIUM, LOW, UNRESOLVED]
+  maintain_primary_event_and_subtype_separately: true
+  persist_rule_version_and_evidence_flags: true
+  heuristic_confidence_is_not_probability: true
+  never_force_ambiguous_events_into_confirmed_categories: true
+  all_thresholds_configurable: true
+
+validation:
+  required_synthetic_tests:
+    - controlled_pass_to_teammate
+    - opponent_intercepts_pass
+    - controlled_carry_then_release
+    - ball_deflection_near_player
+    - shot_toward_goal_and_clearly_wide_shot
+    - goal_plane_crossing_with_z_calibrated_and_uncalibrated
+    - ball_crosses_touchline
+    - ball_crosses_endline_near_corner
+    - global_reset_without_semantically_known_restart
+    - large_ball_teleport_is_not_a_pass
+  require_manual_review_sample_before_tuning_final_thresholds: true

@@ -1,0 +1,11 @@
+__pycache__/
+.pytest_cache/
+.venv/
+output/
+*.pyc
+build/
+HANDOFF.md
+.venv-local/
+.tmp_tracking_plan_validation/
+*.egg-info/
+.vscode/

@@ -1,0 +1,24 @@
+input_path: "data/gfootball_results_games_0-2.csv"
+output_dir: "./output"
+frame_rate: 25.0
+seconds_per_frame: 0.04
+pitch_length: 120.0
+pitch_width: 80.0
+attacking_directions:
+  0: 1.0
+  1: -1.0
+possession_distance_threshold: 1.2
+pass_distance_threshold: 0.5
+ball_release_velocity_threshold: 0.2
+progressive_distance_threshold: 5.0
+sprint_threshold_mps: 6.0
+speed_band_thresholds: [0.0, 2.0, 4.0, 6.0, 8.0]
+use_physical_calibration: false
+normalize_source_coordinates: true
+event_detection_parameters_path: "football_event_detection_parameters_pitch120x80.yaml"
+# Inferred, not source-verified: 0.1 s/step puts player top speed at ~10.8 m/s and 99.9th-pct ball speed at ~42 m/s.
+seconds_per_timestep: 0.1
+# Display clock only: maps a 3000-step game onto 90 broadcast minutes.
+match_minutes: 90.0
+timesteps_per_match: 3000
+roster_path: "data/roster.json"
