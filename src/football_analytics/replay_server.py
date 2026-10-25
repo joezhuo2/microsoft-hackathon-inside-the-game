@@ -40,7 +40,7 @@ ENRICH = os.environ.get("ENRICH", "1") == "1"
 AGENT_CALLS_PER_HOUR = int(os.environ.get("AGENT_CALLS_PER_HOUR", "0"))
 ENRICH_MIN_IMPORTANCE = float(os.environ.get("ENRICH_MIN_IMPORTANCE", "0.6"))
 TICK_S = 0.1
-PROFILE_KEYS = ("persona", "language", "favorite_club_id", "favorite_player_id", "metric_focus")
+PROFILE_KEYS = ("persona", "language", "favorite_club_id", "favorite_player_id", "interests")
 MOMENT_ID = re.compile(r"\bM\d+-\d{4}\b")
 EVENT_ID = re.compile(r"\b\d+-\d{6}\b")
 TEMPLATES = {"goal": "lower_third", "shot": "stat_card", "key_pass": "stat_card", "top_speed": "player_tag", "press_escape": "player_tag", "high_turnover": "stat_card", "momentum_shift": "momentum_bar", "rhythm_change": "momentum_bar", "sustained_build_up": "stat_card"}
@@ -165,14 +165,15 @@ def profile_from(params: Any) -> dict[str, Any]:
     def number(value: Any) -> int | None:
         return int(value) if value not in (None, "", "null") else None
 
-    return {"persona": params.get("persona", "casual"), "language": params.get("language", "en"), "favorite_club_id": number(params.get("club")), "favorite_player_id": number(params.get("player")), "metric_focus": params.get("focus") or None}
+    raw = params.get("interests")
+    return {"persona": commentary.persona_for(raw) if raw else params.get("persona", "casual"), "language": params.get("language", "en"), "favorite_club_id": number(params.get("club")), "favorite_player_id": number(params.get("player")), "interests": cues.interests(raw)}
 
 
 AGENT_PERSONA = {"analyst": "analyst", "producer": "analyst", "fantasy": "analyst"}
 
 
 def agent_profile(profile: dict[str, Any]) -> dict[str, Any]:
-    return {**profile, "persona": AGENT_PERSONA.get(profile["persona"], "casual")}
+    return {**profile, "persona": AGENT_PERSONA.get(profile["persona"], "casual"), "interests": {k: cues.band(v) for k, v in cues.interests(profile.get("interests")).items()}}
 
 
 @lru_cache(maxsize=1)
@@ -277,8 +278,8 @@ async def stream(request: Request) -> StreamingResponse:
     enrich_on = ENRICH and params.get("enrich", "1") == "1"
     profile = profile_from(params)
     steps = tracks()[game_id]["steps"]
-    pending = [m for m in moments(game_id) if m["start_timestep"] >= position]
-    extra = sorted((c for c in cues.derived_cues(game_id, profile, tracks(), running_stats(game_id)) + valuation.money_cues(game_id, profile, steps) if c.timestep >= position), key=lambda c: c.timestep)
+    pending = [m for m in moments(game_id) if m["start_timestep"] >= position and cues.wanted(m["moment_type"], profile)]
+    extra = sorted((cues.weighted(c, profile) for c in cues.derived_cues(game_id, profile, tracks(), running_stats(game_id)) + valuation.money_cues(game_id, profile, steps) if c.timestep >= position and cues.wanted(c.event_type, profile)), key=lambda c: c.timestep)
 
     async def events():
         queue: asyncio.Queue[tuple[str, Any]] = asyncio.Queue()
@@ -333,7 +334,7 @@ async def ask(request: Request) -> JSONResponse:
     profile = profile_from(body)
     if not question.strip():
         return JSONResponse({"error": "empty question"}, status_code=400)
-    style = f"Viewer type: {profile['persona']}. Answer depth: {body.get('depth', 'balanced')}. Tone: {body.get('tone', 'neutral')}." + (" Lead with tactics." if body.get("tactical") else "")
+    style = f"Viewer type: {profile['persona']}. Answer depth: {body.get('depth', 'balanced')}. Tone: {body.get('tone', 'neutral')}. {commentary.interest_line(profile['interests'])}" + (" Lead with tactics." if body.get("tactical") else "")
     prompt = f"Fan question during game_id={game_id} at timestep={timestep} ({match_clock(timestep)}). profile_json={json.dumps(agent_profile(profile))}\n{style}\nQuestion: {question}"
     try:
         reply = await asyncio.to_thread(ask_orchestrator, prompt)

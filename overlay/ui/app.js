@@ -2,7 +2,7 @@ const tauri = window.__TAURI__;
 const API = tauri ? "http://127.0.0.1:8765" : "";
 const $ = (id) => document.getElementById(id);
 const offlineMessage = tauri ? "Replay server offline. Run: python -m football_analytics.replay_server" : "Replay server unreachable.";
-const controls = ["game", "speed", "persona", "language", "club", "player", "focus", "enrich"];
+const controls = ["game", "speed", "language", "club", "player", "enrich"];
 const MAX_FEED = 5;
 
 const ICONS = {
@@ -74,19 +74,39 @@ function label(kind) {
 }
 
 function profile() {
-  return { persona: $("persona").value, language: $("language").value, club: $("club").value, player: $("player").value, focus: $("focus").value };
+  return { interests: Object.entries(interests()).map(([k, v]) => `${k}:${v}`).join(","), language: $("language").value, club: $("club").value, player: $("player").value };
 }
 
-const PERSONAS = { casual: "Casual fan", superfan: "Superfan", analyst: "Tactical analyst", fantasy: "Fantasy player", producer: "Studio producer", newcomer: "New to football", money: "Follow the money" };
-const PERSONA_DEPTH = { money: "balanced", analyst: "deep", producer: "deep", newcomer: "headlines" };
+const INTERESTS = ["speed", "passing", "pressure", "possession", "money"];
+const BANDS = [[75, "Obsessed"], [50, "Into it"], [20, "Light"], [0, "Skip"]];
+const PERSONA_DEPTH = { analyst: "deep", newcomer: "headlines" };
+
+function interests() {
+  return Object.fromEntries(INTERESTS.map((k) => [k, state.prefs.interests?.[k] ?? 50]));
+}
+
+function persona() {
+  const i = interests(), mean = INTERESTS.reduce((sum, k) => sum + i[k], 0) / INTERESTS.length;
+  if (i.money >= 70 && INTERESTS.every((k) => k === "money" || i[k] < i.money)) return "money";
+  return mean >= 70 ? "analyst" : mean <= 25 ? "newcomer" : "casual";
+}
 
 function analyst() {
-  return !["casual", "newcomer"].includes($("persona").value);
+  return !["casual", "newcomer"].includes(persona());
 }
 
-function setPersona(persona) {
-  $("persona").value = persona;
-  $("persona").dispatchEvent(new Event("change"));
+function buildDials(box) {
+  box.append(...INTERESTS.map((k) => el("label", { class: "dial" }, el("span", {}, k), el("input", { type: "range", min: "0", max: "100", step: "5", "data-interest": k }), el("output", {}))));
+}
+
+function paintDials() {
+  const i = interests();
+  document.querySelectorAll("[data-interest]").forEach((input) => {
+    const v = i[input.dataset.interest], band = BANDS.find(([min]) => v >= min)[1];
+    input.value = String(v);
+    input.setAttribute("aria-valuetext", `${v}, ${band}`);
+    input.nextElementSibling.textContent = `${v} · ${band}`;
+  });
 }
 
 function status(text, error = false) {
@@ -152,7 +172,7 @@ function savePrefs() {
 
 function preferences() {
   const club = $("club").value, player = $("player").value;
-  return { persona: $("persona").value, language: $("language").value, favorite_club_id: club === "" ? null : Number(club), favorite_player_id: player === "" ? null : Number(player), metric_focus: $("focus").value || null, ...state.prefs };
+  return { persona: persona(), language: $("language").value, favorite_club_id: club === "" ? null : Number(club), favorite_player_id: player === "" ? null : Number(player), ...state.prefs };
 }
 
 function post(path, body) {
@@ -787,7 +807,7 @@ async function sendFeedback(kind) {
   try {
     const data = await post("/api/feedback", { preferences: preferences(), event: { kind, game_id: Number($("game").value), timestep: state.lastT, response_id: r.response_id, player_id: player == null ? null : Number(player) } });
     const { depth, tone, tactical, favorite_player_id: favorite } = data.preferences;
-    state.prefs = { depth, tone, tactical };
+    state.prefs = { ...state.prefs, depth, tone, tactical };
     savePrefs();
     if (favorite != null && String(favorite) !== $("player").value) {
       $("player").value = String(favorite);
@@ -837,10 +857,21 @@ async function init() {
     return;
   }
   for (const id of controls) $(id).addEventListener("change", () => connect(id === "game"));
-  $("persona").addEventListener("change", () => {
-    applyPersona();
-    state.prefs.depth = PERSONA_DEPTH[$("persona").value] || "balanced";
+  buildDials($("dials"));
+  buildDials($("onboardDials"));
+  paintDials();
+  document.addEventListener("input", (e) => {
+    const key = e.target.dataset?.interest;
+    if (!key) return;
+    state.prefs.interests = { ...interests(), [key]: Number(e.target.value) };
+    paintDials();
+  });
+  document.addEventListener("change", (e) => {
+    if (!e.target.dataset?.interest) return;
+    state.prefs.depth = PERSONA_DEPTH[persona()] || "balanced";
     savePrefs();
+    applyPersona();
+    connect();
   });
   $("club").addEventListener("change", applyPersona);
   $("player").addEventListener("change", () => {
@@ -927,14 +958,7 @@ async function init() {
     $("onboard").hidden = true;
     try { localStorage.setItem("match-onboarded", "1"); } catch { /* storage unavailable */ }
   };
-  $("onboardChoices").replaceChildren(...Object.entries(PERSONAS).map(([id, name]) => el("button", { type: "button", "data-persona": id }, name)));
-  $("onboardChoices").onclick = (e) => {
-    const persona = e.target.closest("[data-persona]")?.dataset.persona;
-    if (!persona) return;
-    setPersona(persona);
-    closeOnboard();
-  };
-  $("onboardSkip").onclick = closeOnboard;
+  $("onboardStart").onclick = closeOnboard;
   $("onboard").hidden = onboarded;
   connect(true);
 }

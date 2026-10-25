@@ -59,3 +59,10 @@ def test_cors_preflight_allows_private_network_for_tauri_origin():
     assert response.status_code == 200
     assert response.headers["access-control-allow-private-network"] == "true"
     assert response.headers["access-control-allow-origin"] == "http://tauri.localhost"
+
+
+def test_profile_from_derives_persona_from_interests():
+    assert replay.profile_from({"persona": "analyst"})["persona"] == "analyst"
+    profile = replay.profile_from({"persona": "analyst", "interests": "money:90"})
+    assert profile["persona"] == "money" and profile["interests"]["money"] == 90
+    assert replay.agent_profile(profile)["interests"] == {"speed": "Into it", "passing": "Into it", "pressure": "Into it", "possession": "Into it", "money": "Obsessed"}

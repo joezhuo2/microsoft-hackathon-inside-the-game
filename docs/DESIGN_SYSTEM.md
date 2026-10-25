@@ -133,7 +133,7 @@ const DEPTH_PRIORITIES = { headlines: ["high"], balanced: ["high", "medium"], de
 
 `visiblePriorities()` returns the list for `state.prefs.depth`, falling back to `balanced`. `routeCue()` drops any cue whose priority is not in that list (`if (!visiblePriorities().includes(cue.priority)) return;`).
 
-Depth defaults come from the persona (`PERSONA_DEPTH` in `app.js`): `analyst` and `producer` use `deep`, `newcomer` uses `headlines`, and other personas use `balanced`. The feedback control "Too basic" raises depth one step and "Too technical" lowers it one step (`apply_feedback` in `src/football_analytics/commentary.py`).
+Depth defaults come from the interest dials (`PERSONA_DEPTH` in `app.js`): a mean of 70 or more (analyst) uses `deep`, 25 or less (newcomer) uses `headlines`, and anything else uses `balanced`. The feedback control "Too basic" raises depth one step and "Too technical" lowers it one step (`apply_feedback` in `src/football_analytics/commentary.py`).
 
 Producer view (`?view=studio`) does not use the depth filter. In `routeCue()`, the studio branch (`if (STUDIO) return studioCue(data);`) returns before the `visiblePriorities()` check. Cues go to the producer queue instead, and airing is controlled by the per-priority Auto toggles (defaults: `high` and `medium` on, `low` off) and the minimum confidence slider.
 

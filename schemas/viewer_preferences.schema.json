@@ -40,17 +40,12 @@
       "default": null,
       "title": "Favorite Player Id"
     },
-    "metric_focus": {
-      "anyOf": [
-        {
-          "type": "string"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Metric Focus"
+    "interests": {
+      "additionalProperties": {
+        "type": "integer"
+      },
+      "title": "Interests",
+      "type": "object"
     },
     "depth": {
       "default": "balanced",

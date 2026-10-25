@@ -213,8 +213,6 @@ def value_board(game_id: int, timestep: int, steps: int) -> list[dict[str, Any]]
 
 
 def money_cues(game_id: int, profile: dict[str, Any], steps: int) -> list[OverlayCue]:
-    if profile.get("persona") != "money":
-        return []
     rows = actions()
     rows = rows[(rows["GAME_ID"] == game_id) & rows["action"].isin(CUE_ACTIONS)]
     events = intel._game("events", game_id).set_index("event_id")

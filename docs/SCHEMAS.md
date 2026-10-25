@@ -8,7 +8,7 @@ The schemas in `schemas/` describe the JSON that crosses the boundaries between 
 | --- | --- | --- |
 | `schemas/overlay_cue.schema.json` | `OverlayCue` | One broadcast cue for the overlay: insight, why it matters, confidence, evidence, priority, theme, duration, and supporting metrics and source event ids. Produced by `src/football_analytics/overlay_cues.py`. |
 | `schemas/commentary_response.schema.json` | `CommentaryResponse` | The answer to an Ask the Match request: headline, observed facts, interpretation, optional projection, context trail, quick replies, depth and tone. Produced by `src/football_analytics/commentary.py`. |
-| `schemas/viewer_preferences.schema.json` | `ViewerPreferences` | The viewer's saved choices: persona, language, favourite club and player, metric focus, depth, tone and tactical flag. Used by `commentary.py`. |
+| `schemas/viewer_preferences.schema.json` | `ViewerPreferences` | The viewer's saved choices: persona (derived from interests), language, favourite club and player, per-stat interests (0-100), depth, tone and tactical flag. Used by `commentary.py`. |
 | `schemas/feedback_event.schema.json` | `FeedbackEvent` | A feedback click (for example "Too basic") tied to a game, timestep and response. `apply_feedback` in `commentary.py` turns it into updated preferences and effect notes. |
 
 The files do not carry a `description` field. The purposes above come from the file titles and the Pydantic models named in each row. Each schema has `schema_version` fixed to `"1.0"`. Tests in `tests/test_commentary.py` (`test_schemas_match_models`) and `tests/test_overlay_cues.py` (`test_schema_file_matches_model`) compare the schema files with the models.
@@ -147,7 +147,7 @@ Nothing in the four examples was hand-edited. All four are generated.
   "language": "en",
   "favorite_club_id": null,
   "favorite_player_id": null,
-  "metric_focus": null,
+  "interests": {"speed": 50, "passing": 50, "pressure": 50, "possession": 50, "money": 50},
   "depth": "deep",
   "tone": "neutral",
   "tactical": false

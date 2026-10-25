@@ -94,6 +94,8 @@ The `Dockerfile` builds the same image where Docker or ACR Tasks are available.
 
 `python -m football_analytics.replay_server` (port 8765, dependencies in `requirements-replay.txt`) replays the tracking data as a live feed over server-sent events. Every key moment gets an instant overlay built from the data and checked by `validate_overlay`. High-importance moments are then sent to the `match-orchestrator` agent in the background, and its personalized overlay appears in the insight feed once it passes the same gate. It uses your `az login` for Foundry. Set `ENRICH=0` to run without agents. Finished agent results are cached in `build/enrich_cache/`.
 
+The overlay opens with five "how much I care" dials (speed, passing, pressure, possession, money; 0-100, default 50, bands Skip <20, Light, Into it, Obsessed >=75). They reach the stream as `interests=speed:80,money:20,...`: cues for a stat below 20 are dropped, cues at 75 or above get a priority bump, and goals, shots and recaps always show. The viewer type sent to the agents is derived from the dials (`persona_for` in `commentary.py`), and the bands are added to the agent profile and Ask style. Change them any time in Match centre; the stream reconnects with the new weights.
+
 The same UI (`overlay/ui/`) runs two ways:
 
 - Web: open `http://127.0.0.1:8765` while the replay server runs.

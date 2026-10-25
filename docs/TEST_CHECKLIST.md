@@ -12,7 +12,7 @@ Run from the repo root:
 
 | File | What it covers |
 | --- | --- |
-| `tests/test_commentary.py` | Schema files match the Pydantic models; no future events leak into a response and the headline is clean; a player name in the question routes to focus-player; action detection from question text; feedback adjusts viewer preferences; agent profile collapses viewer types. |
+| `tests/test_commentary.py` | Schema files match the Pydantic models; no future events leak into a response and the headline is clean; a player name in the question routes to focus-player; action detection from question text; feedback adjusts viewer preferences; agent profile collapses viewer types; viewer type derived from interests. |
 | `tests/test_mcp_server.py` | `validate_claims` accepts cited facts and rejects uncited ones; `validate_overlay` checks schema and that numbers are backed by the moment. |
 | `tests/test_overlay_cues.py` | The overlay cue schema file matches its model; a goal cue is themed, traceable to source events and gated; rhythm changes map to control, and a favourite player gets a priority bump. |
 | `tests/test_pipeline.py` | Tracking CSV loading; coordinate normalisation keeps source values and does not clip; ball and player detection in preprocessing; both supplied CSVs load all six games; stationary entities have zero speed; diagnostics do not bridge gaps or resets; possession and event creation; the tracking-only pass detector ignores labels; an uncontrolled distant ball stays unknown; nearest-player distances split by team; pass quality, ball speed and pass difficulty; a score change becomes a goal moment with its clock; sprint tags need sustained speed. |
@@ -31,8 +31,9 @@ Start the replay server and open the overlay in a browser (`/` for the overlay, 
 - [ ] A typed question in the Ask field returns a commentary response.
 - [ ] The Too basic feedback button changes the depth setting and shows an effect note.
 - [ ] Each feedback button (Too basic, Too technical, More tactical, More emotional, Follow this player) shows an effect note.
-- [ ] On first load with no saved preferences, the onboarding dialog "How do you watch?" appears.
-- [ ] Skip closes the onboarding dialog.
+- [ ] On first load with no saved preferences, the onboarding dialog "What do you care about?" appears with five dials, each showing its value and band.
+- [ ] Start closes the onboarding dialog.
+- [ ] Moving a Match centre dial below 20 stops that stat's cues after the stream reconnects.
 - [ ] After closing the onboarding dialog, reloading the page does not show it again (`match-onboarded` in localStorage).
 - [ ] The Kick off splash appears when the replay starts.
 - [ ] The Half time splash appears at the half time point, followed by the Second half splash.

@@ -30,6 +30,10 @@ CONFIDENCE = {"HIGH": 0.9, "MEDIUM": 0.7, "LOW": 0.45, "UNRESOLVED": 0.3}
 MEASURED = 0.8
 OWN_THIRD_M = 40.0
 BUMP: dict[Priority, Priority] = {"low": "medium", "medium": "high", "high": "high"}
+INTERESTS = ("speed", "passing", "pressure", "possession", "money")
+BANDS = ((75, "Obsessed"), (50, "Into it"), (20, "Light"), (0, "Skip"))
+SKIP_BELOW, BUMP_FROM = 20, 75
+STAT_BY_EVENT = {"top_speed": "speed", "key_pass": "passing", "sustained_build_up": "passing", "press_escape": "pressure", "high_turnover": "pressure", "interception": "pressure", "momentum_shift": "possession", "rhythm_change": "possession"}
 
 
 class Metric(BaseModel):
@@ -65,6 +69,39 @@ class OverlayCue(BaseModel):
     supporting_metrics: list[Metric] = Field(default_factory=list, max_length=4)
     source_event_ids: list[str] = Field(default_factory=list)
     synthetic: Literal[True] = True
+
+
+def interests(raw: Any = None) -> dict[str, int]:
+    if isinstance(raw, str):
+        raw = dict(part.split(":", 1) for part in raw.split(",") if ":" in part)
+    raw = raw if isinstance(raw, dict) else {}
+    out = {}
+    for key in INTERESTS:
+        try:
+            out[key] = max(0, min(100, int(float(raw.get(key, 50)))))
+        except (TypeError, ValueError, OverflowError):
+            out[key] = 50
+    return out
+
+
+def band(value: int) -> str:
+    return next(name for floor, name in BANDS if value >= floor)
+
+
+def interest(kind: str, profile: dict[str, Any]) -> int:
+    stat = "money" if kind.startswith("value_") else STAT_BY_EVENT.get(kind)
+    return interests(profile.get("interests")).get(stat, 50) if stat else 50
+
+
+def wanted(kind: str, profile: dict[str, Any]) -> bool:
+    return interest(kind, profile) >= SKIP_BELOW
+
+
+def weighted(cue: OverlayCue, profile: dict[str, Any]) -> OverlayCue:
+    if interest(cue.event_type, profile) < BUMP_FROM:
+        return cue
+    priority = BUMP[cue.priority]
+    return cue.model_copy(update={"priority": priority, "duration_ms": max(cue.duration_ms, DURATION_MS[priority])})
 
 
 def _club(team: Any) -> str:
@@ -153,7 +190,7 @@ def moment_cue(moment: dict[str, Any], stats: list[dict[str, Any]], profile: dic
     if kind == "goal":
         confidence = max(confidence, 0.95)
     team = moment.get("TEAM_ID")
-    return OverlayCue(
+    return weighted(OverlayCue(
         event_id=event_ids[-1] if event_ids else moment["moment_id"],
         moment_id=moment["moment_id"],
         game_id=game_id,
@@ -172,7 +209,7 @@ def moment_cue(moment: dict[str, Any], stats: list[dict[str, Any]], profile: dic
         player_focus=focus,
         supporting_metrics=_metrics(stats),
         source_event_ids=event_ids,
-    )
+    ), profile)
 
 
 def _own_goal_x(game_id: int, tracks: dict[int, dict[str, Any]]) -> dict[int, float]:
