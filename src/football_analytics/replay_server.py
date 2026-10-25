@@ -26,6 +26,7 @@ from starlette.staticfiles import StaticFiles
 from . import mcp_server as intel
 from . import commentary
 from . import overlay_cues as cues
+from . import valuation
 from .data_loader import load_tracking_data
 from .match_intelligence import match_clock
 
@@ -277,7 +278,7 @@ async def stream(request: Request) -> StreamingResponse:
     profile = profile_from(params)
     steps = tracks()[game_id]["steps"]
     pending = [m for m in moments(game_id) if m["start_timestep"] >= position]
-    extra = [c for c in cues.derived_cues(game_id, profile, tracks(), running_stats(game_id)) if c.timestep >= position]
+    extra = sorted((c for c in cues.derived_cues(game_id, profile, tracks(), running_stats(game_id)) + valuation.money_cues(game_id, profile, steps) if c.timestep >= position), key=lambda c: c.timestep)
 
     async def events():
         queue: asyncio.Queue[tuple[str, Any]] = asyncio.Queue()
@@ -381,7 +382,19 @@ async def feedback_route(request: Request) -> JSONResponse:
     return JSONResponse(commentary.apply_feedback(_preferences(body), event).model_dump())
 
 
-routes = [Route("/api/meta", meta), Route("/api/stream", stream), Route("/api/ask", ask, methods=["POST"]), Route("/api/commentary", commentary_route, methods=["POST"]), Route("/api/feedback", feedback_route, methods=["POST"])]
+async def value_route(request: Request) -> JSONResponse:
+    body = await request.json()
+    game_id = int(body.get("game", 0))
+    steps = tracks()[game_id]["steps"]
+    timestep = max(0, min(int(body.get("timestep", 0)), steps - 1))
+    player = body.get("player_id")
+    if player not in (None, "") and str(player) not in intel._roster()["players"]:
+        return JSONResponse({"error": f"unknown player {player}"}, status_code=400)
+    card = valuation.player_value(game_id, int(player), timestep, steps).model_dump() if player not in (None, "") else None
+    return JSONResponse({"player": card, "board": valuation.value_board(game_id, timestep, steps), "actions": {k: {"label": v[0], "unit_gbp": v[2]} for k, v in valuation.ACTIONS.items()}})
+
+
+routes = [Route("/api/meta", meta), Route("/api/stream", stream), Route("/api/ask", ask, methods=["POST"]), Route("/api/commentary", commentary_route, methods=["POST"]), Route("/api/feedback", feedback_route, methods=["POST"]), Route("/api/value", value_route, methods=["POST"])]
 if UI_DIR.exists():
     routes.append(Mount("/", StaticFiles(directory=UI_DIR, html=True)))
 app = Starlette(routes=routes, middleware=[Middleware(CORSMiddleware, allow_origins=["http://tauri.localhost", "https://tauri.localhost", "tauri://localhost"], allow_methods=["GET", "POST"], allow_headers=["content-type"], allow_private_network=True)])
