@@ -113,13 +113,13 @@ body.locked #dock { opacity: 0; pointer-events: none; }
 .collapse { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 0.45s var(--ease), opacity 0.35s var(--ease), margin 0.45s var(--ease); }
 .collapse > * { min-height: 0; overflow: hidden; }
 .collapse.open { grid-template-rows: 1fr; opacity: 1; }
-#panelWrap.open, #askWrap.open { margin-top: 10px; }
-#askBtn { margin-top: 10px; }
-#panel, #askPanel { padding: 14px; }
+#panelWrap.open, #askWrap.open, #valueWrap.open { margin-top: 10px; }
+#askBtn, #valueBtn { margin-top: 10px; }
+#panel, #askPanel, #valuePanel { padding: 14px; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; }
 label { display: flex; flex-direction: column; gap: 3px; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
 label.check { flex-direction: row; align-items: center; gap: 8px; font-size: 12px; color: var(--text); }
-select, input, #panel button, #askPanel button {
+select, input, #panel button, #askPanel button, #valuePanel button {
   font: inherit;
   font-size: 13px;
   letter-spacing: normal;
@@ -131,10 +131,10 @@ select, input, #panel button, #askPanel button {
   padding: 5px 8px;
   transition: border-color 0.2s, background 0.2s;
 }
-select:hover, input:hover, #panel button:hover, #askPanel button:hover { border-color: var(--edge-strong); background: rgba(255, 255, 255, 0.08); }
+select:hover, input:hover, #panel button:hover, #askPanel button:hover, #valuePanel button:hover { border-color: var(--edge-strong); background: rgba(255, 255, 255, 0.08); }
 select option { background: #111; }
 input[type="checkbox"] { accent-color: #fff; }
-#panel button, #askPanel button { cursor: pointer; text-transform: uppercase; letter-spacing: 0.1em; font-size: 11px; }
+#panel button, #askPanel button, #valuePanel button { cursor: pointer; text-transform: uppercase; letter-spacing: 0.1em; font-size: 11px; }
 :focus-visible { outline: 1px solid #fff; outline-offset: 2px; }
 .actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 #ask { display: flex; gap: 6px; margin-top: 12px; }
@@ -164,6 +164,47 @@ input[type="checkbox"] { accent-color: #fff; }
 .foot { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 11px; color: var(--muted); }
 .foot .hint { margin-left: auto; }
 #status.error { color: #fff; }
+
+/* player value */
+:root { --money: #d4af37; --loss: #f87171; }
+#valuePanel { max-height: calc(100vh - 230px); overflow-y: auto; overflow-x: hidden; --accent: var(--money); }
+#valuePanel select { width: 100%; min-width: 0; }
+#valuePanel h3 { margin: 12px 0 2px; font-size: 16px; font-weight: 500; display: flex; align-items: center; gap: 8px; text-shadow: var(--glow); }
+#valuePanel h3 .tag { margin-left: auto; }
+#valuePanel h4 { margin: 12px 0 4px; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); font-weight: 400; }
+#valuePanel p { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+#valuePanel .v-sub, #valuePanel .note, #valuePanel .v-result { color: var(--muted); font-size: 12px; }
+#valuePanel .note { margin-top: 10px; }
+#valuePanel .v-why { margin-top: 8px; }
+#valuePanel .v-result { margin-top: 8px; color: var(--text); }
+.v-money { display: flex; gap: 22px; margin: 10px 0; }
+.v-money div { display: flex; flex-direction: column; }
+.v-money b { font-size: 20px; font-weight: 300; color: var(--money); text-shadow: 0 0 12px var(--money); }
+.v-money span { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.meter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.meter-row .meter { flex: 1 1 120px; }
+.bar { height: 6px; min-width: 0; background: rgba(255, 255, 255, 0.08); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--money); box-shadow: 0 0 8px var(--money); transition: width 0.5s var(--ease); }
+.bar i.neg { background: repeating-linear-gradient(135deg, var(--loss) 0 3px, transparent 3px 6px); box-shadow: none; }
+.bar i.avg, .bar i.fair { background: var(--muted); box-shadow: none; }
+.bar i.bad { background: var(--loss); box-shadow: 0 0 8px var(--loss); }
+.badge-v { padding: 2px 7px; font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; white-space: nowrap; box-shadow: inset 0 0 0 1px var(--muted); color: var(--muted); }
+.badge-v.good { color: #000; background: var(--money); box-shadow: none; }
+.badge-v.bad { color: var(--loss); box-shadow: inset 0 0 0 1px var(--loss); }
+.cmp-group { margin-top: 6px; }
+.cmp-title { font-size: 11px; color: var(--muted); }
+.cmp { display: grid; grid-template-columns: 56px 1fr 36px; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); }
+.cmp b { text-align: right; color: var(--text); font-weight: 400; }
+#valuePanel .v-row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto; align-items: center; gap: 8px; width: 100%; margin-top: 4px; text-align: left; text-transform: none; letter-spacing: normal; font-size: 12px; }
+.v-name { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+.v-row b { font-weight: 500; }
+.v-moments { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 0 2px; }
+.v-moments[hidden], #valueBoard[hidden] { display: none; }
+#valuePanel [aria-pressed="true"] { border-color: var(--money); color: var(--money); }
+#valueBoard { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+#valuePanel .b-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; width: 100%; text-align: left; text-transform: none; letter-spacing: normal; font-size: 12px; }
+#valuePanel .b-row.on { border-color: var(--money); }
+.b-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* moment alert */
 #alert {
@@ -336,5 +377,6 @@ body.studio #cam { top: 18px; }
   #feed { order: 5; }
   #studio { order: 7; position: static; width: 100%; max-height: none; }
   #dock { order: 6; }
+  #valuePanel { max-height: none; }
   .stat-wrap { flex: 1 1 140px; }
 }

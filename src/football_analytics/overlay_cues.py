@@ -10,9 +10,9 @@ from pydantic import BaseModel, Field
 from . import mcp_server as intel
 from .match_intelligence import match_clock
 
-Theme = Literal["breakthrough", "pressure_shift", "momentum_swing", "player_spotlight", "goal_threat", "defensive_masterclass", "chaos_index", "control_index", "milestone", "recap_cue"]
+Theme = Literal["breakthrough", "pressure_shift", "momentum_swing", "player_spotlight", "goal_threat", "defensive_masterclass", "chaos_index", "control_index", "milestone", "recap_cue", "value_swing"]
 Priority = Literal["high", "medium", "low"]
-Audience = Literal["casual", "superfan", "analyst", "fantasy", "producer", "newcomer"]
+Audience = Literal["casual", "superfan", "analyst", "fantasy", "producer", "newcomer", "money"]
 
 THEME_BY_MOMENT: dict[str, tuple[Theme, Priority]] = {
     "goal": ("goal_threat", "high"),
