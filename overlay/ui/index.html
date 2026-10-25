@@ -29,7 +29,7 @@
         <div class="grid">
           <label>Game<select id="game"></select></label>
           <label>Speed<select id="speed"><option value="10">1×</option><option value="20">2×</option><option value="30" selected>3×</option><option value="60">6×</option></select></label>
-          <label>Viewer<select id="persona"><option value="casual">Casual fan</option><option value="superfan">Superfan</option><option value="analyst">Tactical analyst</option><option value="fantasy">Fantasy player</option><option value="producer">Studio producer</option><option value="newcomer">New to football</option></select></label>
+          <label>Viewer<select id="persona"><option value="casual">Casual fan</option><option value="superfan">Superfan</option><option value="analyst">Tactical analyst</option><option value="fantasy">Fantasy player</option><option value="producer">Studio producer</option><option value="newcomer">New to football</option><option value="money">Follow the money</option></select></label>
           <label>Language<select id="language"><option value="en">English</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="pt">Português</option><option value="it">Italiano</option><option value="ar">العربية</option><option value="ja">日本語</option><option value="zh">中文</option></select></label>
           <label>Club<select id="club"><option value="">Neutral</option></select></label>
           <label>Player<select id="player"><option value="">None</option></select></label>
@@ -57,6 +57,7 @@
           <button type="button" data-action="simpler">Make it simpler</button>
           <button type="button" data-action="numbers">Give me the numbers</button>
           <button type="button" data-action="why">Why did this matter?</button>
+          <button type="button" data-value>Why are they paid that?</button>
         </div>
         <form id="ask">
           <input id="question" placeholder="Ask about the match…" autocomplete="off" maxlength="500">
@@ -64,6 +65,18 @@
         </form>
         <div id="commentary" dir="auto" aria-live="polite"></div>
         <div id="answerWrap" class="collapse"><div id="answer" dir="auto"></div></div>
+      </section>
+    </div>
+    <button id="valueBtn" class="tile" data-hit aria-expanded="false" aria-controls="valuePanel">
+      <span class="ibox" data-icon="coin"></span><span class="tile-label">Player value</span>
+    </button>
+    <div id="valueWrap" class="collapse">
+      <section id="valuePanel" class="frame" data-hit>
+        <label>Player<select id="valuePlayer"></select></label>
+        <div id="valueCard"></div>
+        <div class="actions"><button type="button" id="valueBoardBtn" aria-expanded="false" aria-controls="valueBoard">Value table</button></div>
+        <div id="valueBoard" hidden></div>
+        <p class="note">Synthetic wages and model values for a fictional league.</p>
       </section>
     </div>
   </aside>

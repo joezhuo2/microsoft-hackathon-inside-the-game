@@ -77,8 +77,8 @@ function profile() {
   return { persona: $("persona").value, language: $("language").value, club: $("club").value, player: $("player").value, focus: $("focus").value };
 }
 
-const PERSONAS = { casual: "Casual fan", superfan: "Superfan", analyst: "Tactical analyst", fantasy: "Fantasy player", producer: "Studio producer", newcomer: "New to football" };
-const PERSONA_DEPTH = { analyst: "deep", producer: "deep", newcomer: "headlines" };
+const PERSONAS = { casual: "Casual fan", superfan: "Superfan", analyst: "Tactical analyst", fantasy: "Fantasy player", producer: "Studio producer", newcomer: "New to football", money: "Follow the money" };
+const PERSONA_DEPTH = { money: "balanced", analyst: "deep", producer: "deep", newcomer: "headlines" };
 
 function analyst() {
   return !["casual", "newcomer"].includes($("persona").value);
@@ -331,7 +331,7 @@ function showEnriched(data) {
   }, 300);
 }
 
-const STINGS = { goal_threat: "Goal threat", momentum_swing: "Momentum shift", player_spotlight: "Player spotlight", control_index: "Tactical reset", chaos_index: "Tactical reset" };
+const STINGS = { goal_threat: "Goal threat", momentum_swing: "Momentum shift", player_spotlight: "Player spotlight", control_index: "Tactical reset", chaos_index: "Tactical reset", value_swing: "Money move" };
 const STING_GAP_MS = 12000;
 let splashTimer = null;
 let lastSting = -STING_GAP_MS;
@@ -567,16 +567,168 @@ async function ask(question) {
   }
 }
 
-function setPanel(open) {
-  $("panelWrap").classList.toggle("open", open);
-  $("dockBtn").setAttribute("aria-expanded", String(open));
-  if (open) setAsk(false);
+const DOCK = [["panelWrap", "dockBtn"], ["askWrap", "askBtn"], ["valueWrap", "valueBtn"]];
+
+function setDock(wrap, open) {
+  for (const [w, b] of DOCK) {
+    const on = w === wrap && open;
+    $(w).classList.toggle("open", on);
+    $(b).setAttribute("aria-expanded", String(on));
+  }
+  if (tauri) setTimeout(reportHitRegions, 500);
 }
 
-function setAsk(open) {
-  $("askWrap").classList.toggle("open", open);
-  $("askBtn").setAttribute("aria-expanded", String(open));
-  if (open && $("panelWrap").classList.contains("open")) setPanel(false);
+const setPanel = (open) => setDock("panelWrap", open);
+const setAsk = (open) => setDock("askWrap", open);
+const setValue = (open) => {
+  setDock("valueWrap", open);
+  if (open) loadValue(valueTarget());
+};
+const isOpen = (wrap) => $(wrap).classList.contains("open");
+
+const VERDICTS = [["bargain", "Bargain"], ["fair value", "Fair"], ["overpaid so far", "Overpaid"]];
+const VALUE_KEY = "match-value-picks";
+const VALUE_REFRESH_MS = 5000;
+const value = { id: null, data: null, board: [], busy: false, at: 0, t: -1, boardOpen: false, openRows: new Set() };
+
+function gbp(n) {
+  const sign = n < 0 ? "-" : "";
+  const a = Math.abs(n);
+  if (a >= 1e6) return `${sign}£${(a / 1e6).toFixed(2)}m`;
+  if (a >= 1e3) return `${sign}£${Math.round(a / 1e3)}k`;
+  return `${sign}£${Math.round(a)}`;
+}
+
+function readPicks() {
+  try { return JSON.parse(localStorage.getItem(VALUE_KEY)) || {}; } catch { return {}; }
+}
+
+function savePick(id, pick) {
+  const picks = readPicks();
+  picks[id] = pick;
+  try { localStorage.setItem(VALUE_KEY, JSON.stringify(picks)); } catch { /* storage unavailable */ }
+}
+
+function valueTarget() {
+  return value.id ?? ($("player").value || null);
+}
+
+function buildValueSelect() {
+  const groups = Object.values(state.roster.clubs).map((club) => el("optgroup", { label: club.name }));
+  const players = Object.entries(state.roster.players).sort((a, b) => Number(a[0]) - Number(b[0]));
+  for (const [id, p] of players) groups[Number(id) >= 100 ? 1 : 0]?.append(new Option(p.name, id));
+  $("valuePlayer").replaceChildren(...groups);
+}
+
+async function loadValue(playerId) {
+  if (value.busy) return;
+  value.busy = true;
+  value.at = performance.now();
+  value.t = state.lastT;
+  const fetchValue = (id) => post("/api/value", { game: $("game").value, timestep: state.lastT, player_id: id == null ? null : Number(id) });
+  try {
+    let id = playerId;
+    let data = await fetchValue(id);
+    if (id == null && data.board.length) {
+      id = data.board[0].player_id;
+      data = await fetchValue(id);
+    }
+    value.board = data.board;
+    value.data = data.player;
+    value.id = id == null ? null : String(id);
+    if (value.id != null) $("valuePlayer").value = value.id;
+    renderValue();
+  } catch (error) {
+    $("valueCard").textContent = `Could not load player value (${error.message}).`;
+  } finally {
+    value.busy = false;
+  }
+}
+
+function verdictClass(verdict) {
+  return verdict === "bargain" ? "good" : verdict === "overpaid so far" ? "bad" : "fair";
+}
+
+function verdictName(verdict) {
+  return VERDICTS.find(([key]) => key === verdict)?.[1] || "Fair";
+}
+
+function compareBar(name, amount, max, cls) {
+  const fill = el("i", { class: cls });
+  fill.style.width = `${Math.min(100, (amount / max) * 100)}%`;
+  return el("div", { class: "cmp" }, el("span", {}, name), el("div", { class: "bar" }, fill), el("b", {}, amount.toFixed(1)));
+}
+
+function breakdownRow(row, max) {
+  const open = value.openRows.has(row.action);
+  const fill = el("i", { class: row.value_gbp < 0 ? "neg" : "" });
+  fill.style.width = `${Math.max(2, (Math.abs(row.value_gbp) / max) * 100)}%`;
+  const head = el("button", { type: "button", class: "v-row", "data-action-key": row.action, "aria-expanded": String(open) },
+    el("span", { class: "v-name" }, `${row.label} ×${row.count}`, row.synthetic ? el("em", { class: "tag ghost synthetic" }, "synthetic") : null),
+    el("div", { class: "bar" }, fill),
+    el("b", {}, gbp(row.value_gbp)));
+  const moments = el("div", { class: "v-moments" }, (row.moments.length ? row.moments : ["no moments yet"]).map((m) => el("span", { class: "tag ghost" }, m)));
+  moments.hidden = !open;
+  return el("div", {}, head, moments);
+}
+
+function pickText(pick, p) {
+  return `You said ${verdictName(pick)}, the model says ${verdictName(p.verdict)}. ${p.why_value}`;
+}
+
+function verdictPanel(p) {
+  const pick = readPicks()[value.id];
+  return el("div", {},
+    el("div", { class: "actions" }, VERDICTS.map(([key, text]) => el("button", { type: "button", "data-pick": key, "aria-pressed": String(pick === key) }, text))),
+    el("p", { class: "v-result", dir: "auto" }, pick ? pickText(pick, p) : ""));
+}
+
+function renderValue() {
+  const p = value.data;
+  if (!p) {
+    $("valueCard").textContent = "No player value yet.";
+    return;
+  }
+  const max = Math.max(1, ...p.breakdown.map((r) => Math.abs(r.value_gbp)));
+  const statMax = Math.max(1, ...p.role_stats.flatMap((r) => [r.player_per_match, r.role_per_match]));
+  const meter = el("i", { class: verdictClass(p.verdict) });
+  meter.style.width = `${Math.max(0, Math.min(3, p.value_ratio)) / 3 * 100}%`;
+  $("valueCard").replaceChildren(
+    el("h3", {}, p.name, el("span", { class: "tag ghost" }, p.match_clock)),
+    el("p", { class: "v-sub" }, `${p.club} · ${p.role} · ${gbp(p.weekly_wage_gbp)} a week · ${p.contract_note}`),
+    el("div", { class: "v-money" },
+      el("div", {}, el("b", {}, gbp(p.match_value_gbp)), el("span", {}, "match value")),
+      el("div", {}, el("b", {}, gbp(p.wage_so_far_gbp)), el("span", {}, "wage so far"))),
+    el("div", { class: "meter-row" },
+      el("div", { class: "bar meter", role: "img", "aria-label": `Value for money ${p.value_ratio.toFixed(2)}x` }, meter),
+      el("b", {}, `${p.value_ratio.toFixed(2)}x`),
+      el("span", { class: `badge-v ${verdictClass(p.verdict)}` }, p.verdict)),
+    el("h4", {}, "Why they're paid that"),
+    el("p", { dir: "auto" }, p.why_paid),
+    ...p.role_stats.map((r) => el("div", { class: "cmp-group" }, el("span", { class: "cmp-title" }, r.label), compareBar("Player", r.player_per_match, statMax, ""), compareBar("Role avg", r.role_per_match, statMax, "avg"))),
+    el("h4", {}, "Where the value came from"),
+    ...p.breakdown.map((r) => breakdownRow(r, max)),
+    el("p", { class: "v-why", dir: "auto" }, p.why_value),
+    el("h4", {}, "Your call"),
+    verdictPanel(p));
+  renderBoard();
+  if (tauri) reportHitRegions();
+}
+
+function renderBoard() {
+  $("valueBoard").hidden = !value.boardOpen;
+  $("valueBoardBtn").setAttribute("aria-expanded", String(value.boardOpen));
+  const rows = value.board.length > 8 ? [...value.board.slice(0, 5), ...value.board.slice(-3)] : value.board;
+  $("valueBoard").replaceChildren(...rows.map((b) => el("button", { type: "button", class: `b-row${String(b.player_id) === value.id ? " on" : ""}`, "data-player": b.player_id },
+    el("span", { class: "b-name" }, `${b.name} · ${b.club}`),
+    el("span", { class: `badge-v ${verdictClass(b.verdict)}` }, `${b.value_ratio.toFixed(1)}x`),
+    el("b", {}, gbp(b.match_value_gbp)))));
+}
+
+function maybeRefreshValue() {
+  if (!isOpen("valueWrap") || value.busy || state.paused) return;
+  if (performance.now() - value.at < VALUE_REFRESH_MS || state.lastT === value.t) return;
+  loadValue(value.id);
 }
 
 function rev(tag, text) {
@@ -674,11 +826,13 @@ async function init() {
       $(`legend${id}`).textContent = club.short;
     }
     const players = Object.entries(meta.roster.players).sort((a, b) => Number(a[0]) - Number(b[0]));
+    buildValueSelect();
     for (const [id, p] of players) $("player").append(new Option(`${p.name} (${meta.roster.clubs[Number(id) >= 100 ? "1" : "0"].short})`, id));
     $("enrich").checked = meta.enrich;
     $("enrich").disabled = !meta.enrich;
-  } catch {
-    status(offlineMessage, true);
+  } catch (err) {
+    console.error("init failed", err);
+    status(`${offlineMessage} (${err && err.message ? err.message : err})`, true);
     setPanel(true);
     return;
   }
@@ -694,7 +848,7 @@ async function init() {
     $("legendFav").hidden = !p;
     $("favName").textContent = p?.short || "";
   });
-  $("dockBtn").onclick = () => setPanel(!$("panelWrap").classList.contains("open"));
+  $("dockBtn").onclick = () => setPanel(!isOpen("panelWrap"));
   $("restart").onclick = () => connect(true);
   $("pause").onclick = () => {
     state.paused = !state.paused;
@@ -721,10 +875,36 @@ async function init() {
       }
     };
   }
-  $("askBtn").onclick = () => setAsk(!$("askWrap").classList.contains("open"));
+  $("askBtn").onclick = () => setAsk(!isOpen("askWrap"));
+  $("valueBtn").onclick = () => setValue(!isOpen("valueWrap"));
+  $("valuePlayer").onchange = () => loadValue($("valuePlayer").value);
+  $("valueBoardBtn").onclick = () => {
+    value.boardOpen = !value.boardOpen;
+    renderBoard();
+    if (tauri) reportHitRegions();
+  };
+  $("valueBoard").onclick = (e) => {
+    const id = e.target.closest("[data-player]")?.dataset.player;
+    if (id) loadValue(id);
+  };
+  $("valueCard").onclick = (e) => {
+    const row = e.target.closest("[data-action-key]");
+    const pick = e.target.closest("[data-pick]")?.dataset.pick;
+    if (row) {
+      const key = row.dataset.actionKey;
+      if (!value.openRows.delete(key)) value.openRows.add(key);
+      renderValue();
+    }
+    if (pick && value.data) {
+      savePick(value.id, pick);
+      renderValue();
+    }
+  };
+  setInterval(maybeRefreshValue, 1000);
   $("focusBtn").onclick = () => askMatch("focus_player", null, Number($("player").value) || null);
   $("recapBtn").onclick = () => askMatch("question", "Give me the match recap so far.");
   $("askChips").onclick = (e) => {
+    if (e.target.closest("[data-value]")) return setValue(true);
     const action = e.target.closest("[data-action]")?.dataset.action;
     if (action) askMatch(action, null, action === "focus_player" ? Number($("player").value) || null : null);
   };
