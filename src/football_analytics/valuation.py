@@ -12,7 +12,7 @@ from .overlay_cues import CONFIDENCE, DURATION_MS, Metric, OverlayCue, PlayerFoc
 
 PROGRESSIVE_M = 10.0
 HARD_PASS = 50.0
-MIN_SHARE = 0.05
+MIN_SHARE = 0.2
 CUE_ACTIONS = ("goal", "shot", "progressive_pass", "interception")
 
 ACTIONS: dict[str, tuple[str, str, int]] = {
@@ -170,7 +170,7 @@ def _why_value(name: str, lines: list[ActionLine], value: int, wage_so_far: int,
     gains = sorted((line for line in lines if line.value_gbp > 0), key=lambda line: -line.value_gbp)[:2]
     if not gains:
         return f"{name} has not produced a valued action yet, so the club is paying {_gbp(wage_so_far)} for minutes without output."
-    drivers = " and ".join(f"{line.count} {line.label.lower()} ({_gbp(line.value_gbp)})" for line in gains)
+    drivers = " and ".join(f"{line.count} {line.label.lower() if line.count != 1 else ACTIONS[line.action][1]} ({_gbp(line.value_gbp)})" for line in gains)
     costs = [line for line in lines if line.value_gbp < 0]
     cost = f" Mistakes cost {_gbp(-sum(line.value_gbp for line in costs))}." if costs else ""
     return f"{_gbp(value)} of value against {_gbp(wage_so_far)} of wages so far, mainly from {drivers}.{cost} Verdict: {verdict}."
@@ -227,7 +227,7 @@ def money_cues(game_id: int, profile: dict[str, Any], steps: int) -> list[Overla
         label, singular, unit = ACTIONS[row["action"]]
         card = player_value(game_id, player_id, int(row["start_timestep"]), steps)
         key = row["action"] in ROLE_PAY.get(person.get("role", ""), ("", ()))[1]
-        priority = "high" if row["action"] == "goal" or player_id == favourite else "medium" if key else "low"
+        priority = "high" if row["action"] == "goal" or player_id == favourite else "medium"
         observed = row["event_id"] in events.index
         cues.append(OverlayCue(
             event_id=row["event_id"], moment_id=row["event_id"] if row["action"] == "goal" else None, game_id=game_id, timestep=int(row["start_timestep"]),
