@@ -17,7 +17,7 @@ Run from the repo root:
 | `tests/test_overlay_cues.py` | The overlay cue schema file matches its model; a goal cue is themed, traceable to source events and gated; rhythm changes map to control, and a favourite player gets a priority bump. |
 | `tests/test_pipeline.py` | Tracking CSV loading; coordinate normalisation keeps source values and does not clip; ball and player detection in preprocessing; both supplied CSVs load all six games; stationary entities have zero speed; diagnostics do not bridge gaps or resets; possession and event creation; the tracking-only pass detector ignores labels; an uncontrolled distant ball stays unknown; nearest-player distances split by team; pass quality, ball speed and pass difficulty; a score change becomes a goal moment with its clock; sprint tags need sustained speed. |
 | `tests/test_replay_server.py` | An instant overlay passes the gate; an enriched overlay falls back to gated English when agents fail; the agent call budget blocks after the hourly limit. |
-| `tests/test_synthetic_extension.py` | Generated synthetic rows are flagged synthetic; event ids are unique and prefixed; player ids exist in the roster; the substitution window is respected; generation is deterministic. This file is untracked in the working tree and belongs to the synthetic-data extension being added in parallel. |
+| `tests/test_synthetic_extension.py` | Generated synthetic rows are flagged synthetic; event ids are unique and prefixed; player ids exist in the roster; the substitution window is respected; generation is deterministic. This file covers the synthetic-data extension in `scripts/extend_synthetic.py`. |
 
 ## B. Manual browser checks
 
