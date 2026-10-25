@@ -158,7 +158,8 @@
         "chaos_index",
         "control_index",
         "milestone",
-        "recap_cue"
+        "recap_cue",
+        "value_swing"
       ],
       "title": "Theme",
       "type": "string"
@@ -171,7 +172,8 @@
         "analyst",
         "fantasy",
         "producer",
-        "newcomer"
+        "newcomer",
+        "money"
       ],
       "title": "Audience Mode",
       "type": "string"

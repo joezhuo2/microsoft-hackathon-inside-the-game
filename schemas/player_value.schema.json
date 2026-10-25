@@ -1,0 +1,198 @@
+{
+  "$defs": {
+    "ActionLine": {
+      "properties": {
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        },
+        "unit_gbp": {
+          "title": "Unit Gbp",
+          "type": "integer"
+        },
+        "value_gbp": {
+          "title": "Value Gbp",
+          "type": "integer"
+        },
+        "synthetic": {
+          "title": "Synthetic",
+          "type": "boolean"
+        },
+        "moments": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Moments",
+          "type": "array"
+        }
+      },
+      "required": [
+        "action",
+        "label",
+        "count",
+        "unit_gbp",
+        "value_gbp",
+        "synthetic"
+      ],
+      "title": "ActionLine",
+      "type": "object"
+    },
+    "RoleStat": {
+      "properties": {
+        "action": {
+          "title": "Action",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        },
+        "player_per_match": {
+          "title": "Player Per Match",
+          "type": "number"
+        },
+        "role_per_match": {
+          "title": "Role Per Match",
+          "type": "number"
+        }
+      },
+      "required": [
+        "action",
+        "label",
+        "player_per_match",
+        "role_per_match"
+      ],
+      "title": "RoleStat",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "game_id": {
+      "title": "Game Id",
+      "type": "integer"
+    },
+    "timestep": {
+      "title": "Timestep",
+      "type": "integer"
+    },
+    "match_clock": {
+      "title": "Match Clock",
+      "type": "string"
+    },
+    "player_id": {
+      "title": "Player Id",
+      "type": "integer"
+    },
+    "name": {
+      "title": "Name",
+      "type": "string"
+    },
+    "club": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "title": "Club"
+    },
+    "role": {
+      "title": "Role",
+      "type": "string"
+    },
+    "weekly_wage_gbp": {
+      "title": "Weekly Wage Gbp",
+      "type": "integer"
+    },
+    "contract_note": {
+      "title": "Contract Note",
+      "type": "string"
+    },
+    "wage_so_far_gbp": {
+      "title": "Wage So Far Gbp",
+      "type": "integer"
+    },
+    "match_value_gbp": {
+      "title": "Match Value Gbp",
+      "type": "integer"
+    },
+    "value_ratio": {
+      "title": "Value Ratio",
+      "type": "number"
+    },
+    "verdict": {
+      "enum": [
+        "bargain",
+        "fair value",
+        "overpaid so far"
+      ],
+      "title": "Verdict",
+      "type": "string"
+    },
+    "breakdown": {
+      "items": {
+        "$ref": "#/$defs/ActionLine"
+      },
+      "title": "Breakdown",
+      "type": "array"
+    },
+    "role_stats": {
+      "items": {
+        "$ref": "#/$defs/RoleStat"
+      },
+      "title": "Role Stats",
+      "type": "array"
+    },
+    "why_paid": {
+      "title": "Why Paid",
+      "type": "string"
+    },
+    "why_value": {
+      "title": "Why Value",
+      "type": "string"
+    },
+    "synthetic": {
+      "const": true,
+      "default": true,
+      "title": "Synthetic",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "game_id",
+    "timestep",
+    "match_clock",
+    "player_id",
+    "name",
+    "club",
+    "role",
+    "weekly_wage_gbp",
+    "contract_note",
+    "wage_so_far_gbp",
+    "match_value_gbp",
+    "value_ratio",
+    "verdict",
+    "breakdown",
+    "role_stats",
+    "why_paid",
+    "why_value"
+  ],
+  "title": "PlayerValue",
+  "type": "object"
+}
