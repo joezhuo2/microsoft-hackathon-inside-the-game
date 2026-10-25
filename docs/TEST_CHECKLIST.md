@@ -50,4 +50,4 @@ Start the replay server and open the overlay in a browser (`/` for the overlay, 
 - [ ] In the Tauri build, clicks on empty desktop areas outside the overlay controls reach the desktop.
 - [ ] In the Tauri build, clicks on the Match centre, Ask the match and onboarding controls work.
 - [ ] In the Tauri build, Ctrl+Shift+O hides the dock and makes the whole overlay click-through.
-- [ ] The hosted demo loads at https://ca-match-replay-std.ashymeadow-7dc0a741.norwayeast.azurecontainerapps.io
+- [ ] The hosted demo loads at https://ca-match-replay-cons.blackocean-5801654c.norwayeast.azurecontainerapps.io
