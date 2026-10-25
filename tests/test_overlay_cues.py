@@ -48,3 +48,18 @@ def test_rhythm_to_control_and_favourite_player_bump(tmp_path, monkeypatch):
     focused = cues.moment_cue(replay.moments(0)[0], [], {"favorite_player_id": 9, "persona": "analyst"})
     assert focused.theme == "goal_threat" and focused.audience_mode == "analyst"
     assert focused.player_focus.name == "Daniel Moreau"
+
+
+def test_interests_parse_and_clamp():
+    assert cues.interests("speed:120,passing:-5,pressure:abc,bogus:9") == {"speed": 100, "passing": 0, "pressure": 50, "possession": 50, "money": 50}
+    assert cues.interests({"money": 75.9}) == {**cues.interests(), "money": 75} and cues.interests(["x"]) == cues.interests()
+    assert [cues.band(v) for v in (0, 19, 20, 49, 50, 74, 75, 100)] == ["Skip", "Skip", "Light", "Light", "Into it", "Into it", "Obsessed", "Obsessed"]
+
+
+def test_interest_drops_and_bumps_cues(tmp_path, monkeypatch):
+    _setup(tmp_path, monkeypatch)
+    goal, rhythm = replay.moments(0)
+    assert not cues.wanted("rhythm_change", {"interests": "possession:19"}) and cues.wanted("goal", {"interests": "possession:0,speed:0"})
+    assert cues.moment_cue(rhythm, [], {"interests": "possession:75"}).priority == "medium"
+    assert cues.moment_cue(rhythm, [], {"interests": "possession:74"}).priority == "low"
+    assert cues.moment_cue(goal, [], {"interests": "speed:100"}).priority == "high"

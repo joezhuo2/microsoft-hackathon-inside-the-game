@@ -76,3 +76,12 @@ def test_agent_profile_collapses_viewer_types():
 
     assert [agent_profile({"persona": p})["persona"] for p in ("casual", "superfan", "analyst", "fantasy", "producer", "newcomer")] == ["casual", "casual", "analyst", "analyst", "analyst", "casual"]
     assert agent_profile({"persona": "producer", "language": "en"})["language"] == "en"
+
+
+def test_persona_derived_from_interests():
+    assert c.persona_for(None) == "casual"
+    assert c.persona_for({"money": 80}) == "money"
+    assert c.persona_for({k: 80 for k in ("speed", "passing", "pressure", "possession", "money")}) == "analyst"
+    assert c.persona_for("speed:10,passing:10,pressure:10,possession:10,money:10") == "newcomer"
+    assert c.ViewerPreferences(interests={"speed": 500}).interests["speed"] == 100
+    assert c.interest_line("pressure:90,speed:5") == "Interests: speed: Skip, passing: Into it, pressure: Obsessed, possession: Into it, money: Into it."

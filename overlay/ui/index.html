@@ -29,13 +29,12 @@
         <div class="grid">
           <label>Game<select id="game"></select></label>
           <label>Speed<select id="speed"><option value="10">1×</option><option value="20">2×</option><option value="30" selected>3×</option><option value="60">6×</option></select></label>
-          <label>Viewer<select id="persona"><option value="casual">Casual fan</option><option value="superfan">Superfan</option><option value="analyst">Tactical analyst</option><option value="fantasy">Fantasy player</option><option value="producer">Studio producer</option><option value="newcomer">New to football</option><option value="money">Follow the money</option></select></label>
           <label>Language<select id="language"><option value="en">English</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="pt">Português</option><option value="it">Italiano</option><option value="ar">العربية</option><option value="ja">日本語</option><option value="zh">中文</option></select></label>
           <label>Club<select id="club"><option value="">Neutral</option></select></label>
           <label>Player<select id="player"><option value="">None</option></select></label>
-          <label>Focus<select id="focus"><option value="">Any</option><option value="speed">Speed</option><option value="passing">Passing</option><option value="pressure">Pressure</option><option value="possession">Possession</option></select></label>
           <label class="check"><input type="checkbox" id="enrich" checked>AI analysis</label>
         </div>
+        <fieldset class="dials" id="dials"><legend>How much I care</legend></fieldset>
         <div class="actions">
           <button id="restart">Restart</button>
           <button id="pause">Pause</button>
@@ -123,7 +122,7 @@
 
   <footer id="tiles"></footer>
 
-  <div id="onboard" class="frame" data-hit hidden role="dialog" aria-labelledby="onboardTitle"><h2 id="onboardTitle">How do you watch?</h2><p>Pick a viewer type. You can change it any time in Match centre.</p><div class="replies" id="onboardChoices"></div><button type="button" id="onboardSkip">Skip</button></div>
+  <div id="onboard" class="frame" data-hit hidden role="dialog" aria-labelledby="onboardTitle"><h2 id="onboardTitle">What do you care about?</h2><p>Set each dial. You can change them any time in Match centre.</p><div class="dials" id="onboardDials"></div><button type="button" id="onboardStart">Start</button></div>
 
   <div id="splash" aria-hidden="true"><div class="splash-text" id="splashText"></div></div>
 

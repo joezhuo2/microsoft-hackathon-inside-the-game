@@ -7,11 +7,11 @@ from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from . import mcp_server as intel
 from .match_intelligence import match_clock
-from .overlay_cues import why_it_matters
+from .overlay_cues import band, interests, why_it_matters
 
 Action = Literal["explain_more", "show_tactics", "focus_player", "simpler", "numbers", "why", "question"]
 Depth = Literal["headlines", "balanced", "deep"]
@@ -43,10 +43,15 @@ class ViewerPreferences(BaseModel):
     language: str = "en"
     favorite_club_id: int | None = None
     favorite_player_id: int | None = None
-    metric_focus: str | None = None
+    interests: dict[str, int] = Field(default_factory=interests)
     depth: Depth = "balanced"
     tone: Tone = "neutral"
     tactical: bool = False
+
+    @field_validator("interests", mode="before")
+    @classmethod
+    def _clamp(cls, value: Any) -> dict[str, int]:
+        return interests(value)
 
 
 class TrailItem(BaseModel):
@@ -88,6 +93,18 @@ class FeedbackEvent(BaseModel):
 class FeedbackResult(BaseModel):
     preferences: ViewerPreferences
     effects: list[str]
+
+
+def persona_for(raw: Any) -> str:
+    values = interests(raw)
+    mean = sum(values.values()) / len(values)
+    if values["money"] >= 70 and all(values["money"] > v for k, v in values.items() if k != "money"):
+        return "money"
+    return "analyst" if mean >= 70 else "newcomer" if mean <= 25 else "casual"
+
+
+def interest_line(raw: Any) -> str:
+    return "Interests: " + ", ".join(f"{k}: {band(v)}" for k, v in interests(raw).items()) + "."
 
 
 def default_depth(persona: str) -> Depth:

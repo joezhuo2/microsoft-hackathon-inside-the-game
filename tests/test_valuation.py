@@ -4,6 +4,7 @@ from pathlib import Path
 import pandas as pd
 
 from football_analytics import mcp_server as server
+from football_analytics import overlay_cues as cues
 from football_analytics import valuation as v
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,10 +62,11 @@ def test_keeper_credited_for_shot_faced(tmp_path, monkeypatch):
     assert v.player_value(0, 100, 100, STEPS).breakdown == []
 
 
-def test_money_cues_only_for_money_viewer(tmp_path, monkeypatch):
+def test_money_cues_follow_money_interest(tmp_path, monkeypatch):
     _setup(tmp_path, monkeypatch)
-    assert v.money_cues(0, {"persona": "casual"}, STEPS) == []
-    found = v.money_cues(0, {"persona": "money"}, STEPS)
+    found = v.money_cues(0, {}, STEPS)
+    assert not [cue for cue in found if cues.wanted(cue.event_type, {"interests": "money:10"})]
+    assert {cues.weighted(cue, {"interests": "money:90"}).priority for cue in found} == {"high"}
     assert {cue.event_type for cue in found} == {"value_goal", "value_shot", "value_progressive_pass", "value_interception"}
     goal = next(cue for cue in found if cue.event_type == "value_goal")
     assert goal.priority == "high" and goal.moment_id == "M0-0001" and goal.audience_mode == "money"
