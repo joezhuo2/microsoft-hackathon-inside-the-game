@@ -871,6 +871,7 @@ async function init() {
     state.prefs.depth = PERSONA_DEPTH[persona()] || "balanced";
     savePrefs();
     applyPersona();
+    if (!$("onboard").hidden) return;
     connect();
   });
   $("club").addEventListener("change", applyPersona);
@@ -958,9 +959,12 @@ async function init() {
     $("onboard").hidden = true;
     try { localStorage.setItem("match-onboarded", "1"); } catch { /* storage unavailable */ }
   };
-  $("onboardStart").onclick = closeOnboard;
+  $("onboardStart").onclick = () => {
+    closeOnboard();
+    connect(true);
+  };
   $("onboard").hidden = onboarded;
-  connect(true);
+  if (onboarded) connect(true);
 }
 
 if (tauri) {
