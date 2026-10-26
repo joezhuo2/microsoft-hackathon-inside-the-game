@@ -37,6 +37,18 @@ const DEPTH_PRIORITIES = { headlines: ["high"], balanced: ["high", "medium"], de
 const ACTION_QUESTIONS = { explain_more: "Explain more", show_tactics: "Show tactics", simpler: "Make it simpler", numbers: "Give me the numbers", why: "Why did this matter?", recap: "Give me the match recap." };
 const REPLY_ACTIONS = Object.fromEntries(Object.entries(ACTION_QUESTIONS).map(([action, text]) => [text, action]));
 const FEEDBACK = [["too_basic", "Too basic"], ["too_technical", "Too technical"], ["more_tactical", "More tactical"], ["more_emotional", "More emotional"], ["follow_player", "Follow this player"]];
+const I18N_KEYS = ["Kick off", "Half time", "Second half", "Full time", "Match recap", "Goal threat", "Momentum shift", "Player spotlight", "Tactical reset", "Money move", "Why did this matter?", "Show tactics", "Give me the numbers", "Make it simpler", "Explain more", "Focus on", "Too basic", "Too technical", "More tactical", "More emotional", "Follow this player", "Observed", "Interpretation", "Projection"];
+const I18N = Object.fromEntries(Object.entries({
+  es: ["Saque inicial", "Descanso", "Segunda parte", "Final", "Resumen del partido", "Ocasión de gol", "Cambio de impulso", "Jugador destacado", "Reajuste táctico", "Jugada de valor", "¿Por qué importó?", "Ver táctica", "Dame los números", "Más sencillo", "Explica más", "Foco en", "Demasiado básico", "Demasiado técnico", "Más táctico", "Más emoción", "Seguir a este jugador", "Observado", "Interpretación", "Proyección"],
+  fr: ["Coup d'envoi", "Mi-temps", "Seconde période", "Fin du match", "Résumé du match", "Occasion de but", "Bascule d'élan", "Joueur à la une", "Ajustement tactique", "Coup de valeur", "Pourquoi c'est important ?", "Voir la tactique", "Donne-moi les chiffres", "Plus simple", "Explique davantage", "Focus sur", "Trop basique", "Trop technique", "Plus tactique", "Plus d'émotion", "Suivre ce joueur", "Observé", "Interprétation", "Projection"],
+  de: ["Anstoß", "Halbzeit", "Zweite Halbzeit", "Abpfiff", "Spielbericht", "Torgefahr", "Momentum-Wechsel", "Spieler im Fokus", "Taktischer Reset", "Wert-Moment", "Warum war das wichtig?", "Taktik zeigen", "Zeig mir die Zahlen", "Einfacher", "Mehr erklären", "Fokus auf", "Zu einfach", "Zu technisch", "Taktischer", "Emotionaler", "Diesem Spieler folgen", "Beobachtet", "Einordnung", "Prognose"],
+  pt: ["Pontapé inicial", "Intervalo", "Segundo tempo", "Fim de jogo", "Resumo da partida", "Chance de gol", "Virada de momento", "Jogador em destaque", "Ajuste tático", "Lance de valor", "Por que isso importou?", "Mostrar tática", "Quero os números", "Mais simples", "Explique mais", "Foco em", "Básico demais", "Técnico demais", "Mais tático", "Mais emoção", "Seguir este jogador", "Observado", "Interpretação", "Projeção"],
+  it: ["Calcio d'inizio", "Intervallo", "Secondo tempo", "Fine partita", "Riepilogo", "Occasione da gol", "Cambio d'inerzia", "Giocatore in evidenza", "Ritocco tattico", "Mossa di valore", "Perché è stato importante?", "Mostra la tattica", "Dammi i numeri", "Più semplice", "Spiega di più", "Focus su", "Troppo semplice", "Troppo tecnico", "Più tattico", "Più emozione", "Segui questo giocatore", "Osservato", "Interpretazione", "Proiezione"],
+}).map(([lang, words]) => [lang, Object.fromEntries(I18N_KEYS.map((key, i) => [key, words[i]]))]));
+const tr = (text) => {
+  const words = I18N[$("language").value] || {};
+  return words[text] || text.replace(/^(Half time|Full time|Focus on) /, (m, key) => `${words[key] || key} `);
+};
 let savedPrefs = {};
 try { savedPrefs = JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch { savedPrefs = {}; }
 const state = { studio: { seq: 0, items: [], onAir: true, minConfidence: 0, autoAir: { high: true, medium: true, low: false } }, prefs: { depth: "balanced", tone: "neutral", tactical: false, ...savedPrefs }, askToken: 0, last: null, roster: null, source: null, frames: [], lastT: 0, paused: false, alertTimer: null, alertToken: 0, alertQueue: [], alertBusy: false, recent: [], entries: new Map(), moments: new Map(), stats: {}, score: [0, 0] };
@@ -358,7 +370,7 @@ let lastSting = -STING_GAP_MS;
 
 function splash(text, ms, { accent = null, small = false } = {}) {
   clearTimeout(splashTimer);
-  $("splashText").textContent = text;
+  $("splashText").textContent = tr(text);
   $("splash").classList.toggle("sting", small);
   $("splash").style.setProperty("--accent", accent || "#fff");
   $("splash").classList.add("show");
@@ -646,7 +658,7 @@ async function loadValue(playerId) {
   value.busy = true;
   value.at = performance.now();
   value.t = state.lastT;
-  const fetchValue = (id) => post("/api/value", { game: $("game").value, timestep: state.lastT, player_id: id == null ? null : Number(id) });
+  const fetchValue = (id) => post("/api/value", { game: $("game").value, timestep: state.lastT, player_id: id == null ? null : Number(id), language: $("language").value });
   try {
     let id = playerId;
     let data = await fetchValue(id);
@@ -759,7 +771,7 @@ function rev(tag, text) {
 }
 
 function section(title, ...body) {
-  return [el("h4", {}, title), ...body];
+  return [el("h4", {}, tr(title)), ...body];
 }
 
 function renderCommentary(r, note) {
@@ -769,8 +781,8 @@ function renderCommentary(r, note) {
     section("Interpretation", rev("p", r.interpretation)),
     r.projection ? section("Projection", rev("p", r.projection)) : null,
     el("div", { class: "trail" }, r.context_trail.map((t) => el("span", { class: "tag ghost", title: t.kind }, t.label))),
-    el("div", { class: "replies" }, r.quick_replies.map((q) => el("button", { type: "button", "data-reply": q }, q))),
-    el("div", { class: "replies" }, FEEDBACK.map(([kind, text]) => el("button", { type: "button", "data-feedback": kind }, text))),
+    el("div", { class: "replies" }, r.quick_replies.map((q) => el("button", { type: "button", "data-reply": q }, tr(q)))),
+    el("div", { class: "replies" }, FEEDBACK.map(([kind, text]) => el("button", { type: "button", "data-feedback": kind }, tr(text)))),
     note ? el("p", { class: "note" }, note) : null,
   ].flat().filter(Boolean));
 }

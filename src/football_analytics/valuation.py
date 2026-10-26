@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from . import mcp_server as intel
 from .match_intelligence import match_clock
+from .i18n import t, word
 from .overlay_cues import CONFIDENCE, DURATION_MS, Metric, OverlayCue, PlayerFocus
 
 PROGRESSIVE_M = 10.0
@@ -157,27 +158,31 @@ def _role_stats(game_id: int, player_id: int, role: str) -> list[RoleStat]:
     return stats
 
 
-def _why_paid(name: str, person: dict[str, Any], stats: list[RoleStat]) -> str:
+def _label(language: str, action: str, count: float) -> str:
+    return word(language, f"n:{action}", ACTIONS[action][0].lower()) if count != 1 else word(language, f"1:{action}", ACTIONS[action][1])
+
+
+def _why_paid(name: str, person: dict[str, Any], stats: list[RoleStat], language: str = "en") -> str:
     role = person.get("role", "player")
-    text = f"{name} earns {_gbp(person.get('weekly_wage_gbp', 0))} a week ({person.get('contract_note', 'squad player')}). {ROLE_PAY.get(role, ('', ()))[0]}"
+    text = t(language, "paid", name=name, wage=_gbp(person.get("weekly_wage_gbp", 0)), note=person.get("contract_note", "squad player"), role_line=word(language, f"pay:{role}", ROLE_PAY.get(role, ("", ()))[0]))
     if stats:
         best = max(stats, key=lambda s: s.player_per_match - s.role_per_match)
-        side = "above" if best.player_per_match > best.role_per_match else "below" if best.player_per_match < best.role_per_match else "level with"
-        text += f" Across the other matches in the sample: {best.player_per_match} {best.label.lower()} a match, {side} the {role} average of {best.role_per_match}."
+        side = "above" if best.player_per_match > best.role_per_match else "below" if best.player_per_match < best.role_per_match else "level"
+        text += t(language, "paid_peer", mine=best.player_per_match, label=_label(language, best.action, 2), side=t(language, side), role=word(language, role, role), avg=best.role_per_match)
     return text
 
 
-def _why_value(name: str, lines: list[ActionLine], value: int, wage_so_far: int, verdict: Verdict) -> str:
+def _why_value(name: str, lines: list[ActionLine], value: int, wage_so_far: int, verdict: Verdict, language: str = "en") -> str:
     gains = sorted((line for line in lines if line.value_gbp > 0), key=lambda line: -line.value_gbp)[:2]
     if not gains:
-        return f"{name} has not produced a valued action yet, so the club is paying {_gbp(wage_so_far)} for minutes without output."
-    drivers = " and ".join(f"{line.count} {line.label.lower() if line.count != 1 else ACTIONS[line.action][1]} ({_gbp(line.value_gbp)})" for line in gains)
+        return t(language, "value_none", name=name, wage=_gbp(wage_so_far))
+    drivers = t(language, "and").join(f"{line.count} {_label(language, line.action, line.count)} ({_gbp(line.value_gbp)})" for line in gains)
     costs = [line for line in lines if line.value_gbp < 0]
-    cost = f" Mistakes cost {_gbp(-sum(line.value_gbp for line in costs))}." if costs else ""
-    return f"{_gbp(value)} of value against {_gbp(wage_so_far)} of wages so far, mainly from {drivers}.{cost} Verdict: {verdict}."
+    cost = t(language, "cost", amount=_gbp(-sum(line.value_gbp for line in costs))) if costs else ""
+    return t(language, "value", value=_gbp(value), wage=_gbp(wage_so_far), drivers=drivers, cost=cost, verdict=word(language, verdict, verdict))
 
 
-def player_value(game_id: int, player_id: int, timestep: int, steps: int) -> PlayerValue:
+def player_value(game_id: int, player_id: int, timestep: int, steps: int, language: str = "en") -> PlayerValue:
     person = _player(player_id)
     name = person.get("name", f"Player {player_id}")
     rows = actions()
@@ -199,7 +204,7 @@ def player_value(game_id: int, player_id: int, timestep: int, steps: int) -> Pla
         club=intel._roster()["clubs"].get(str(team), {}).get("name"), role=person.get("role", "player"), weekly_wage_gbp=wage,
         contract_note=person.get("contract_note", "squad player"), wage_so_far_gbp=wage_so_far, match_value_gbp=value, value_ratio=ratio,
         verdict=verdict, breakdown=sorted(lines, key=lambda line: -abs(line.value_gbp)), role_stats=stats,
-        why_paid=_why_paid(name, person, stats), why_value=_why_value(name, lines, value, wage_so_far, verdict),
+        why_paid=_why_paid(name, person, stats, language), why_value=_why_value(name, lines, value, wage_so_far, verdict, language),
     )
 
 
@@ -218,6 +223,7 @@ def money_cues(game_id: int, profile: dict[str, Any], steps: int) -> list[Overla
     rows = rows[(rows["GAME_ID"] == game_id) & rows["action"].isin(CUE_ACTIONS)]
     events = intel._game("events", game_id).set_index("event_id")
     favourite = profile.get("favorite_player_id")
+    language = profile.get("language", "en")
     cues = []
     for _, row in rows.iterrows():
         player_id = int(row["PLAYER_ID"])
@@ -226,13 +232,14 @@ def money_cues(game_id: int, profile: dict[str, Any], steps: int) -> list[Overla
         label, singular, unit = ACTIONS[row["action"]]
         card = player_value(game_id, player_id, int(row["start_timestep"]), steps)
         key = row["action"] in ROLE_PAY.get(person.get("role", ""), ("", ()))[1]
+        role = person.get("role", "player")
         priority = "high" if row["action"] == "goal" or player_id == favourite else "medium"
         observed = row["event_id"] in events.index
         cues.append(OverlayCue(
             event_id=row["event_id"], moment_id=row["event_id"] if row["action"] == "goal" else None, game_id=game_id, timestep=int(row["start_timestep"]),
             match_clock=match_clock(row["start_timestep"]), event_type=f"value_{row['action']}",
-            primary_insight=f"{name} adds value: {singular}"[:90],
-            why_it_matters=(f"This is what a {person.get('role', 'player')} is paid for." if key else f"A bonus beyond the core {person.get('role', 'player')} job.") + f" Verdict so far: {card.verdict}.",
+            primary_insight=t(language, "adds_value", name=name, action=_label(language, row["action"], 1))[:90],
+            why_it_matters=t(language, "cue_core" if key else "cue_bonus", role=word(language, role, role)) + t(language, "cue_verdict", verdict=word(language, card.verdict, card.verdict)),
             confidence=CONFIDENCE.get(str(events.loc[row["event_id"], "confidence_level"]), 0.7) if observed and "confidence_level" in events.columns else (0.95 if row["action"] == "goal" else 0.6),
             evidence="observed" if not row["synthetic"] else "derived", priority=priority, duration_ms=DURATION_MS[priority], theme="value_swing", audience_mode="money",
             team_id=0 if player_id < 100 else 1, player_focus=PlayerFocus(player_id=player_id, name=name, involvement=singular),

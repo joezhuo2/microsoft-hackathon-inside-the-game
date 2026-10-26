@@ -361,7 +361,7 @@ async def ask(request: Request) -> JSONResponse:
         return JSONResponse({"error": "empty question"}, status_code=400)
     style = f"Viewer type: {profile['persona']}. Answer depth: {body.get('depth', 'balanced')}. Tone: {body.get('tone', 'neutral')}. {commentary.interest_line(profile['interests'])}" + (" Lead with tactics." if body.get("tactical") else "")
     route = f"Match recap: call match_recap with game_id={game_id} and as_of={timestep}.\n" if body.get("action") == "recap" else ""
-    prompt = f"Fan question during game_id={game_id} at timestep={timestep} ({match_clock(timestep)}); pass as_of={timestep} to every tool. profile_json={json.dumps(agent_profile(profile))}\n{style}\n{route}Question: {question}"
+    prompt = f"Fan question during game_id={game_id} at timestep={timestep} ({match_clock(timestep)}); pass as_of={timestep} to every tool. profile_json={json.dumps({**agent_profile(profile), 'depth': body.get('depth', 'balanced'), 'tone': body.get('tone', 'neutral'), 'tactical': bool(body.get('tactical'))})}\n{style}\n{route}Question: {question}"
     try:
         reply = await asyncio.to_thread(ask_orchestrator, prompt)
     except BudgetExceeded:
@@ -417,7 +417,7 @@ async def value_route(request: Request) -> JSONResponse:
     player = body.get("player_id")
     if player not in (None, "") and str(player) not in intel._roster()["players"]:
         return JSONResponse({"error": f"unknown player {player}"}, status_code=400)
-    card = valuation.player_value(game_id, int(player), timestep, steps).model_dump() if player not in (None, "") else None
+    card = valuation.player_value(game_id, int(player), timestep, steps, str(body.get("language") or "en")).model_dump() if player not in (None, "") else None
     return JSONResponse({"player": card, "board": valuation.value_board(game_id, timestep, steps), "actions": {k: {"label": v[0], "unit_gbp": v[2]} for k, v in valuation.ACTIONS.items()}})
 
 

@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from pydantic.json_schema import SkipJsonSchema
 
 from . import mcp_server as intel
+from .i18n import t as tr, word
 from .match_intelligence import match_clock
 
 Theme = Literal["breakthrough", "pressure_shift", "momentum_swing", "player_spotlight", "goal_threat", "defensive_masterclass", "chaos_index", "control_index", "milestone", "recap_cue", "value_swing"]
@@ -120,41 +121,36 @@ def _goal_story(team: int, score_after: str) -> str:
     goals = [int(part) for part in score_after.split("-")]
     mine, theirs = goals[team], goals[1 - team]
     if mine > theirs:
-        return "take the lead" if mine - 1 <= theirs else "extend the lead"
-    return "level the match" if mine == theirs else "pull one back"
+        return "goal_lead" if mine - 1 <= theirs else "goal_extend"
+    return "goal_level" if mine == theirs else "goal_back"
 
 
-def why_it_matters(kind: str, metrics: dict[str, Any], team: Any, name: str | None) -> str:
+def why_it_matters(kind: str, metrics: dict[str, Any], team: Any, name: str | None, language: str = "en") -> str:
     club = _club(team)
     who = name or club
     if kind == "goal" and metrics.get("score_after") and team is not None and not pd.isna(team):
-        return f"{club} {_goal_story(int(team), metrics['score_after'])}, {metrics['score_after']}. The game state changes for both sides."
+        return tr(language, _goal_story(int(team), metrics["score_after"]), club=club, score=metrics["score_after"])
     if kind == "shot":
         speed = metrics.get("shot_speed_kmh")
-        distance = metrics.get("distance_to_goal_line_m")
-        pace = f" at about {speed} km/h" if speed else ""
-        return f"A shot{pace} from {distance} m out tests the keeper and shows where {club} can hurt the defence."
+        return tr(language, "shot_fast" if speed else "shot", speed=speed, distance=metrics.get("distance_to_goal_line_m"), club=club)
     if kind == "key_pass":
-        return f"A {metrics.get('pass_difficulty')} difficulty pass through a {metrics.get('lane_pressure_m')} m gap breaks a line over {metrics.get('ball_travel_m')} m."
+        return tr(language, "key_pass", difficulty=metrics.get("pass_difficulty"), gap=metrics.get("lane_pressure_m"), length=metrics.get("ball_travel_m"))
     if kind == "sustained_build_up":
-        return f"{metrics.get('consecutive_passes')} straight completed passes across {metrics.get('players_involved')} players: {club} are dictating the tempo."
+        return tr(language, "build_up", passes=metrics.get("consecutive_passes"), players=metrics.get("players_involved"), club=club)
     if kind == "press_escape":
-        return f"{who} escaped {metrics.get('opponents_within_5m')} close opponents, turning pressure into space."
+        return tr(language, "press_escape", who=who, opponents=metrics.get("opponents_within_5m"))
     if kind == "high_turnover":
-        return f"Ball won {metrics.get('x_from_own_goal_m')} m from their own goal, so {club} attack an unset defence."
+        return tr(language, "high_turnover", x=metrics.get("x_from_own_goal_m"), club=club)
     if kind == "momentum_shift":
-        side = _club(0 if (metrics.get("momentum_after") or 0) > 0 else 1)
-        return f"Momentum flipped towards {side}. Possession and territory over the last spell now favour them."
+        return tr(language, "momentum", side=_club(0 if (metrics.get("momentum_after") or 0) > 0 else 1))
     if kind == "rhythm_change":
         target = metrics.get("to")
         if target == "chaos":
-            return f"The game moved from {metrics.get('from')} to chaos with {metrics.get('turnovers')} turnovers: expect end-to-end transitions."
-        if target == "control":
-            return "The game settled into control: one side is building patiently and holding territory."
-        return "The tempo has evened out; neither side is controlling play."
+            return tr(language, "rhythm_chaos", origin=word(language, str(metrics.get("from")), str(metrics.get("from"))), turnovers=metrics.get("turnovers"))
+        return tr(language, "rhythm_control" if target == "control" else "rhythm_even")
     if kind == "top_speed":
-        return f"{who} reached about {metrics.get('top_speed_kmh')} km/h over a {metrics.get('sprint_distance_m')} m sprint, one of the fastest runs so far."
-    return "A notable moment in the match flow."
+        return tr(language, "top_speed", who=who, speed=metrics.get("top_speed_kmh"), distance=metrics.get("sprint_distance_m"))
+    return tr(language, "moment")
 
 
 def _confidence(event_ids: list[str], game_id: int) -> tuple[float, Literal["observed", "derived"]]:
@@ -199,8 +195,8 @@ def moment_cue(moment: dict[str, Any], stats: list[dict[str, Any]], profile: dic
         timestep=int(moment["known_timestep"]),
         match_clock=match_clock(moment["known_timestep"]),
         event_type=kind,
-        primary_insight=f"Goal, {_club(team)}" if kind == "goal" else (f"{name}: {moment['fact_hint']}" if name else moment["fact_hint"]),
-        why_it_matters=why_it_matters(kind, metrics, team, name)[:220],
+        primary_insight=tr(profile.get("language"), "goal_insight", club=_club(team)) if kind == "goal" else (f"{name}: {moment['fact_hint']}" if name else moment["fact_hint"]),
+        why_it_matters=why_it_matters(kind, metrics, team, name, profile.get("language", "en"))[:220],
         confidence=confidence,
         evidence=evidence,
         priority=priority,
@@ -236,8 +232,8 @@ def derived_cues(game_id: int, profile: dict[str, Any], tracks: dict[int, dict[s
         player_id = None if pd.isna(event["PLAYER_ID"]) else int(event["PLAYER_ID"])
         cues.append(OverlayCue(
             event_id=event["event_id"], game_id=game_id, timestep=int(event["start_timestep"]), match_clock=match_clock(event["start_timestep"]),
-            event_type="interception", primary_insight=f"{name or _club(team)}: interception in their own third",
-            why_it_matters="Cut out in their own third, stopping an attack before it became a chance.",
+            event_type="interception", primary_insight=tr(profile.get("language"), "interception", who=name or _club(team)),
+            why_it_matters=tr(profile.get("language"), "interception_why"),
             confidence=CONFIDENCE.get(str(event["confidence_level"]), 0.5), evidence="observed", priority="medium" if profile.get("favorite_player_id") == player_id else "low",
             duration_ms=DURATION_MS["low"], theme="defensive_masterclass", audience_mode=audience, team_id=team,
             player_focus=PlayerFocus(player_id=player_id, name=name, involvement="interception") if player_id is not None else None,
@@ -252,8 +248,8 @@ def derived_cues(game_id: int, profile: dict[str, Any], tracks: dict[int, dict[s
             distance = int(tag["distance_m"]) if not pd.isna(tag.get("distance_m")) else int(tag["value"]) * index
             cues.append(OverlayCue(
                 event_id=f"T{game_id}-{favourite}-{index}", game_id=game_id, timestep=int(tag["start_timestep"]), match_clock=match_clock(tag["start_timestep"]),
-                event_type="distance_milestone", primary_insight=f"{name}: {distance} m covered",
-                why_it_matters=f"{name} has now covered {distance} m, a sign of work rate off the ball.",
+                event_type="distance_milestone", primary_insight=tr(profile.get("language"), "milestone", name=name, distance=distance),
+                why_it_matters=tr(profile.get("language"), "milestone_why", name=name, distance=distance),
                 confidence=MEASURED, evidence="derived", priority="medium", duration_ms=DURATION_MS["medium"], theme="milestone", audience_mode=audience,
                 team_id=int(tag["TEAM_ID"]), player_focus=PlayerFocus(player_id=favourite, name=name, involvement="distance milestone"),
                 supporting_metrics=[Metric(label="distance", value=distance, unit="m")], facts={"distance_m": distance},

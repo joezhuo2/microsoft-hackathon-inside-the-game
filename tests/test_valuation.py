@@ -80,5 +80,16 @@ def test_value_board_sorted_by_ratio(tmp_path, monkeypatch):
     assert [row["value_ratio"] for row in board] == sorted((row["value_ratio"] for row in board), reverse=True)
 
 
+def test_value_explanations_follow_language(tmp_path, monkeypatch):
+    _setup(tmp_path, monkeypatch)
+    en, es = v.player_value(0, 9, 100, STEPS), v.player_value(0, 9, 100, STEPS, "es")
+    assert es.match_value_gbp == en.match_value_gbp and es.verdict == en.verdict == "bargain"
+    assert es.why_value.startswith(f"{v._gbp(es.match_value_gbp)} de valor frente a {v._gbp(es.wage_so_far_gbp)} de salario hasta ahora")
+    assert "1 gol (£150k)" in es.why_value and es.why_value.endswith("Veredicto: una ganga.")
+    assert es.why_paid.startswith("Daniel Moreau cobra £150k a la semana (record signing). A los mediocentros")
+    goal = next(cue for cue in v.money_cues(0, {"language": "es"}, STEPS) if cue.event_type == "value_goal")
+    assert goal.primary_insight == "Daniel Moreau suma valor: gol" and goal.why_it_matters.endswith("Veredicto por ahora: una ganga.")
+
+
 def test_schema_file_matches_model():
     assert json.loads((ROOT / "schemas" / "player_value.schema.json").read_text(encoding="utf-8")) == v.PlayerValue.model_json_schema()
