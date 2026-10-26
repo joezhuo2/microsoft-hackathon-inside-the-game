@@ -10,8 +10,9 @@ The schemas in `schemas/` describe the JSON that crosses the boundaries between 
 | `schemas/commentary_response.schema.json` | `CommentaryResponse` | The answer to an Ask the Match request: headline, observed facts, interpretation, optional projection, context trail, quick replies, depth and tone. `action: "recap"` gives a whole-match recap (score, scorers, key moments from both halves, team stats) as of the timestep. Produced by `src/football_analytics/commentary.py`. |
 | `schemas/viewer_preferences.schema.json` | `ViewerPreferences` | The viewer's saved choices: persona (derived from interests), language, favourite club and player, per-stat interests (0-100), depth, tone and tactical flag. Used by `commentary.py`. |
 | `schemas/feedback_event.schema.json` | `FeedbackEvent` | A feedback click (for example "Too basic") tied to a game, timestep and response. `apply_feedback` in `commentary.py` turns it into updated preferences and effect notes. |
+| `schemas/player_value.schema.json` | `PlayerValue` | The player value card for one player at one timestep: weekly wage, wage so far, match value so far, value ratio, verdict, counted actions, role stats and the why-paid and why-value lines. Produced by `src/football_analytics/valuation.py`. |
 
-The files do not carry a `description` field. The purposes above come from the file titles and the Pydantic models named in each row. Each schema has `schema_version` fixed to `"1.0"`. Tests in `tests/test_commentary.py` (`test_schemas_match_models`) and `tests/test_overlay_cues.py` (`test_schema_file_matches_model`) compare the schema files with the models.
+The files do not carry a `description` field. The purposes above come from the file titles and the Pydantic models named in each row. Each schema has `schema_version` fixed to `"1.0"`. Tests in `tests/test_commentary.py` (`test_schemas_match_models`), `tests/test_overlay_cues.py` (`test_schema_file_matches_model`) and `tests/test_valuation.py` (`test_schema_file_matches_model`) compare the schema files with the models.
 
 ## Example instances
 
@@ -36,7 +37,7 @@ Nothing in the four examples was hand-edited. All four are generated.
   "match_clock": "02:26",
   "event_type": "top_speed",
   "primary_insight": "Sami Lindqvist: Top speed 32.8 km/h",
-  "why_it_matters": "Sami Lindqvist reached about 32.8 km/h over a 12.7 m sprint, one of the fastest runs so far.",
+  "why_it_matters": "Sami Lindqvist reached about 33 km/h over a 13 m sprint.",
   "confidence": 0.8,
   "evidence": "derived",
   "priority": "low",
@@ -52,12 +53,12 @@ Nothing in the four examples was hand-edited. All four are generated.
   "supporting_metrics": [
     {
       "label": "sprint",
-      "value": 12.7,
+      "value": 13.0,
       "unit": "m"
     },
     {
       "label": "top speed",
-      "value": 32.8,
+      "value": 33.0,
       "unit": "km/h"
     }
   ],
@@ -71,7 +72,7 @@ Nothing in the four examples was hand-edited. All four are generated.
 ```json
 {
   "schema_version": "1.0",
-  "response_id": "15760ed81110",
+  "response_id": "aa1c8fed5a04",
   "game_id": 0,
   "timestep": 2700,
   "match_clock": "81:00",
@@ -81,8 +82,8 @@ Nothing in the four examples was hand-edited. All four are generated.
   "observed": [
     "Momentum swung"
   ],
-  "interpretation": "Momentum flipped towards Port Saltmere United. Possession and territory over the last spell now favour them. Right now it's a balanced spell.",
-  "projection": "If this pattern holds, expect Port Saltmere United to keep pushing higher for the next few minutes.",
+  "interpretation": "The momentum gauge, built from possession, territory and shots over the last spell, now leans to Port Saltmere United. Right now it's a balanced spell.",
+  "projection": "If this pattern holds, Port Saltmere United may keep the edge in possession and territory for the next few minutes.",
   "context_trail": [
     {
       "kind": "moment",
@@ -133,7 +134,7 @@ Nothing in the four examples was hand-edited. All four are generated.
   "kind": "too_basic",
   "game_id": 0,
   "timestep": 2700,
-  "response_id": "15760ed81110",
+  "response_id": "aa1c8fed5a04",
   "player_id": null
 }
 ```
