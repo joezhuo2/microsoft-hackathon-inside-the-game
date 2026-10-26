@@ -4,6 +4,7 @@ const $ = (id) => document.getElementById(id);
 const offlineMessage = tauri ? "Replay server offline. Run: python -m football_analytics.replay_server" : "Replay server unreachable.";
 const controls = ["game", "speed", "language", "club", "player", "enrich"];
 const MAX_FEED = 5;
+const MAX_HISTORY = 10;
 
 const ICONS = {
   ball: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5l3.6 2.6-1.4 4.2H9.8l-1.4-4.2zM12 7.5V3.2M15.6 10.1l4-1.3M14.2 14.3l2.5 3.5M9.8 14.3l-2.5 3.5M8.4 10.1l-4-1.3"/>',
@@ -86,7 +87,7 @@ function label(kind) {
 }
 
 function profile() {
-  return { interests: Object.entries(interests()).map(([k, v]) => `${k}:${v}`).join(","), language: $("language").value, club: $("club").value, player: $("player").value };
+  return { interests: Object.entries(interests()).map(([k, v]) => `${k}:${v}`).join(","), language: $("language").value, club: $("club").value, player: $("player").value, depth: state.prefs.depth, tone: state.prefs.tone, tactical: state.prefs.tactical ? "1" : "0" };
 }
 
 const INTERESTS = ["speed", "passing", "pressure", "possession", "money"];
@@ -184,11 +185,25 @@ function savePrefs() {
 
 function preferences() {
   const club = $("club").value, player = $("player").value;
-  return { persona: persona(), language: $("language").value, favorite_club_id: club === "" ? null : Number(club), favorite_player_id: player === "" ? null : Number(player), ...state.prefs };
+  return { persona: persona(), ...state.prefs, language: $("language").value, favorite_club_id: club === "" ? null : Number(club), favorite_player_id: player === "" ? null : Number(player) };
 }
 
+function savePicks() {
+  const { language, favorite_club_id, favorite_player_id } = preferences();
+  Object.assign(state.prefs, { language, favorite_club_id, favorite_player_id });
+  savePrefs();
+}
+
+function restorePicks() {
+  for (const [id, saved] of [["language", state.prefs.language], ["club", state.prefs.favorite_club_id], ["player", state.prefs.favorite_player_id]]) {
+    if (saved != null && [...$(id).options].some((o) => o.value === String(saved))) $(id).value = String(saved);
+  }
+}
+
+const playerId = () => $("player").value === "" ? null : Number($("player").value);
+
 function post(path, body) {
-  return fetch(`${API}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(async (response) => {
+  return fetch(`${API}${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), signal: abort.signal }).then(async (response) => {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || response.status);
     return data;
@@ -229,6 +244,7 @@ function airItem(item) {
 function airCue(data) {
   const cue = data.cue;
   sting(cue);
+  logCue(cue);
   const compact = compactMode();
   state.recent.push(performance.now());
   if (cue.priority === "high" && !compact) {
@@ -243,7 +259,16 @@ function nextAlert() {
   while (state.alertQueue.length && state.lastT - state.alertQueue[0].cue.timestep > STALE_TIMESTEPS) state.alertQueue.shift();
   const data = state.alertQueue.shift();
   state.alertBusy = Boolean(data);
-  if (data) showAlert(data, () => setTimeout(nextAlert, 380));
+  const live = epoch;
+  if (data) showAlert(data, () => setTimeout(() => live === epoch && nextAlert(), 380));
+}
+
+function logCue(cue) {
+  const look = theme(cue.theme);
+  const item = el("li", { dir: "auto" }, el("b", {}, `${cue.match_clock} · ${look.label}`), " ", cue.primary_insight);
+  item.style.setProperty("--accent", look.accent);
+  $("historyList").prepend(item);
+  [...$("historyList").children].slice(MAX_HISTORY).forEach((n) => n.remove());
 }
 
 function metricNodes(metrics) {
@@ -387,9 +412,15 @@ function sting(cue) {
 }
 
 async function sequence(steps) {
+  const live = epoch;
   state.splashBusy = true;
-  for (const [text, ms] of steps) await splash(text, ms);
+  for (const [text, ms] of steps) {
+    if (live !== epoch) return false;
+    await splash(text, ms);
+  }
+  if (live !== epoch) return false;
   state.splashBusy = false;
+  return true;
 }
 
 function renderQueue() {
@@ -441,12 +472,31 @@ function applyFrame(f) {
   updateStats(f.stats);
 }
 
+let epoch = 0, abort = new AbortController();
+
 function connect(fromStart = false) {
   state.source?.close();
+  epoch++;
+  abort.abort();
+  abort = new AbortController();
+  ++state.alertToken;
+  clearTimeout(state.alertTimer);
+  state.alertBusy = false;
+  $("alert").classList.remove("show");
+  clearTimeout(splashTimer);
+  $("splash").classList.remove("show");
+  state.splashBusy = false;
+  if (state.paused) {
+    state.resumeFromStart ||= fromStart;
+    return status("Paused · changes apply on resume");
+  }
+  fromStart ||= Boolean(state.resumeFromStart);
+  state.resumeFromStart = false;
   if (fromStart) {
     state.lastT = 0;
     state.score = [0, 0];
     state.frames = [];
+    $("historyList").replaceChildren();
   }
   const query = new URLSearchParams({ game: $("game").value, speed: $("speed").value, start: String(state.lastT), enrich: $("enrich").checked ? "1" : "0", ...profile() });
   state.entries.clear();
@@ -485,7 +535,7 @@ function connect(fromStart = false) {
   source.addEventListener("end", (e) => {
     const f = JSON.parse(e.data);
     applyFrame(f);
-    sequence([[`Full time ${f.score[0]}–${f.score[1]}`, 3600], ["Match recap", 2000]]).then(() => askMatch("recap"));
+    sequence([[`Full time ${f.score[0]}–${f.score[1]}`, 3600], ["Match recap", 2000]]).then((ok) => ok && askMatch("recap"));
     status("Full time. Finishing analysis…");
   });
   source.addEventListener("done", () => {
@@ -584,9 +634,11 @@ function draw() {
 async function ask(question, action) {
   $("answerWrap").classList.add("open");
   $("answer").replaceChildren(el("span", { class: "tag ghost dots" }, "agents working"));
+  const token = state.askToken;
   try {
-    const response = await fetch(`${API}/api/ask`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game: $("game").value, timestep: state.lastT, question, action, ...profile(), depth: state.prefs.depth, tone: state.prefs.tone, tactical: state.prefs.tactical }) });
+    const response = await fetch(`${API}/api/ask`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game: $("game").value, timestep: state.lastT, question, action, ...profile(), depth: state.prefs.depth, tone: state.prefs.tone, tactical: state.prefs.tactical }), signal: abort.signal });
     const data = await response.json();
+    if (token !== state.askToken) return;
     if (!response.ok) throw new Error(data.error || response.status);
     const text = el("div", { dir: "auto" });
     $("answer").replaceChildren(...[
@@ -596,7 +648,7 @@ async function ask(question, action) {
       data.evidence?.length ? el("span", { class: "tag ghost" }, `Evidence: ${data.evidence.join(", ")}`) : null].filter(Boolean));
     reveal(text, data.answer);
   } catch (error) {
-    $("answer").textContent = `Could not reach the agents (${error.message}).`;
+    if (token === state.askToken) $("answer").textContent = error.name === "AbortError" ? "" : `Could not reach the agents (${error.message}).`;
   }
 }
 
@@ -672,7 +724,7 @@ async function loadValue(playerId) {
     if (value.id != null) $("valuePlayer").value = value.id;
     renderValue();
   } catch (error) {
-    $("valueCard").textContent = `Could not load player value (${error.message}).`;
+    if (error.name !== "AbortError") $("valueCard").textContent = `Could not load player value (${error.message}).`;
   } finally {
     value.busy = false;
   }
@@ -807,7 +859,7 @@ async function askMatch(action, question = null, playerId = null, withAgent = tr
     state.last = r;
     renderCommentary(r, note);
   } catch (error) {
-    if (token === state.askToken) $("commentary").textContent = `Could not load commentary (${error.message}).`;
+    if (token === state.askToken) $("commentary").textContent = error.name === "AbortError" ? "" : `Could not load commentary (${error.message}).`;
     return;
   }
   if (agent) ask(agentQuestion(action, question, playerId), action);
@@ -820,12 +872,13 @@ async function sendFeedback(kind) {
   try {
     const data = await post("/api/feedback", { preferences: preferences(), event: { kind, game_id: Number($("game").value), timestep: state.lastT, response_id: r.response_id, player_id: player == null ? null : Number(player) } });
     const { depth, tone, tactical, favorite_player_id: favorite } = data.preferences;
+    const restyled = depth !== state.prefs.depth || tone !== state.prefs.tone || tactical !== state.prefs.tactical;
     state.prefs = { ...state.prefs, depth, tone, tactical };
     savePrefs();
     if (favorite != null && String(favorite) !== $("player").value) {
       $("player").value = String(favorite);
       $("player").dispatchEvent(new Event("change"));
-    }
+    } else if (restyled) connect();
     askMatch(r.action, r.question, r.player_id, false, data.effects.join(" "));
   } catch (error) {
     status(`Feedback failed (${error.message}).`, true);
@@ -861,6 +914,7 @@ async function init() {
     const players = Object.entries(meta.roster.players).sort((a, b) => Number(a[0]) - Number(b[0]));
     buildValueSelect();
     for (const [id, p] of players) $("player").append(new Option(`${p.name} (${meta.roster.clubs[Number(id) >= 100 ? "1" : "0"].short})`, id));
+    restorePicks();
     $("enrich").checked = meta.enrich;
     $("enrich").disabled = !meta.enrich;
   } catch (err) {
@@ -888,11 +942,15 @@ async function init() {
     connect();
   });
   $("club").addEventListener("change", applyPersona);
-  $("player").addEventListener("change", () => {
+  const showFavourite = () => {
     const p = state.roster.players[$("player").value];
     $("legendFav").hidden = !p;
     $("favName").textContent = p?.short || "";
-  });
+  };
+  $("player").addEventListener("change", showFavourite);
+  for (const id of ["language", "club", "player"]) $(id).addEventListener("change", savePicks);
+  showFavourite();
+  applyPersona();
   $("dockBtn").onclick = () => setPanel(!isOpen("panelWrap"));
   $("restart").onclick = () => connect(true);
   $("pause").onclick = () => {
@@ -946,19 +1004,20 @@ async function init() {
     }
   };
   setInterval(maybeRefreshValue, 1000);
-  $("focusBtn").onclick = () => askMatch("focus_player", null, Number($("player").value) || null);
+  $("focusBtn").onclick = () => askMatch("focus_player", null, playerId());
   $("recapBtn").onclick = () => askMatch("recap");
   $("askChips").onclick = (e) => {
     if (e.target.closest("[data-value]")) return setValue(true);
     const action = e.target.closest("[data-action]")?.dataset.action;
-    if (action) askMatch(action, null, action === "focus_player" ? Number($("player").value) || null : null);
+    if (action) askMatch(action, null, action === "focus_player" ? playerId() : null);
   };
   $("commentary").onclick = (e) => {
     const reply = e.target.closest("[data-reply]")?.dataset.reply;
     const kind = e.target.closest("[data-feedback]")?.dataset.feedback;
     if (kind) return sendFeedback(kind);
     if (!reply) return;
-    if (reply.startsWith("Focus on ")) return askMatch("focus_player", null, state.last?.player_id ?? null);
+    const named = Object.keys(state.roster.players).find((id) => reply === `Focus on ${state.roster.players[id].short}`);
+    if (reply.startsWith("Focus on ")) return askMatch("focus_player", null, named == null ? state.last?.player_id ?? null : Number(named));
     askMatch(REPLY_ACTIONS[reply] || "question", REPLY_ACTIONS[reply] ? null : reply);
   };
   $("ask").onsubmit = (e) => {
@@ -968,16 +1027,24 @@ async function init() {
   };
   let onboarded = false;
   try { onboarded = Boolean(localStorage.getItem("match-onboarded")); } catch { onboarded = false; }
+  const backdrop = [...document.body.children].filter((n) => n !== $("onboard") && n.tagName !== "SCRIPT");
+  const setOnboard = (open) => {
+    $("onboard").hidden = !open;
+    backdrop.forEach((n) => { n.inert = open; });
+  };
   const closeOnboard = () => {
-    $("onboard").hidden = true;
+    setOnboard(false);
     try { localStorage.setItem("match-onboarded", "1"); } catch { /* storage unavailable */ }
   };
   $("onboardStart").onclick = () => {
     closeOnboard();
+    $("dockBtn").focus();
     connect(true);
   };
-  $("onboard").hidden = onboarded;
+  $("onboard").onkeydown = (e) => { if (e.key === "Escape") $("onboardStart").click(); };
+  setOnboard(!onboarded);
   if (onboarded) connect(true);
+  else $("onboardDials").querySelector("input").focus();
 }
 
 if (tauri) {

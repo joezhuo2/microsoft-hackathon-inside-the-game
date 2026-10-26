@@ -40,7 +40,7 @@ ENRICH = os.environ.get("ENRICH", "1") == "1"
 AGENT_CALLS_PER_HOUR = int(os.environ.get("AGENT_CALLS_PER_HOUR", "0"))
 ENRICH_MIN_IMPORTANCE = float(os.environ.get("ENRICH_MIN_IMPORTANCE", "0.6"))
 TICK_S = 0.1
-PROFILE_KEYS = ("persona", "language", "favorite_club_id", "favorite_player_id", "interests")
+PROFILE_KEYS = ("persona", "language", "favorite_club_id", "favorite_player_id", "interests", "depth", "tone", "tactical")
 MOMENT_ID = re.compile(r"\bM\d+-\d{4}\b")
 EVENT_ID = re.compile(r"\b\d+-\d{6}\b")
 TEMPLATES = {"goal": "lower_third", "shot": "stat_card", "key_pass": "stat_card", "top_speed": "player_tag", "press_escape": "player_tag", "high_turnover": "stat_card", "momentum_shift": "momentum_bar", "rhythm_change": "momentum_bar", "sustained_build_up": "stat_card"}
@@ -166,7 +166,7 @@ def profile_from(params: Any) -> dict[str, Any]:
         return int(value) if value not in (None, "", "null") else None
 
     raw = params.get("interests")
-    return {"persona": commentary.persona_for(raw) if raw else params.get("persona", "casual"), "language": params.get("language", "en"), "favorite_club_id": number(params.get("club")), "favorite_player_id": number(params.get("player")), "interests": cues.interests(raw)}
+    return {"persona": commentary.persona_for(raw) if raw else params.get("persona", "casual"), "language": params.get("language", "en"), "favorite_club_id": number(params.get("club")), "favorite_player_id": number(params.get("player")), "interests": cues.interests(raw), "depth": params.get("depth") if params.get("depth") in commentary.DEPTHS else "balanced", "tone": "emotional" if params.get("tone") == "emotional" else "neutral", "tactical": params.get("tactical") in ("1", "true", True)}
 
 
 AGENT_PERSONA = {"analyst": "analyst", "producer": "analyst", "fantasy": "analyst"}
@@ -257,7 +257,7 @@ async def enrich(game_id: int, moment: dict[str, Any], profile: dict[str, Any]) 
         text, language = verified_text(game_id, moment, shown["overlay"], [(cached.get("text"), cached.get("language", "en"))])
         return {**cached, **shown, "text": text, "language": language, "cached": True}
     async with semaphore:
-        prompt = f"Live moment. game_id={game_id} moment_id={moment['moment_id']} as_of={int(moment['known_timestep'])} profile_json={json.dumps(profile)}"
+        prompt = f"Live moment. game_id={game_id} moment_id={moment['moment_id']} as_of={int(moment['known_timestep'])} profile_json={json.dumps(profile)}\nAnswer depth: {profile['depth']}. Tone: {profile['tone']}." + (" Lead with tactics." if profile["tactical"] else "")
         reply = await asyncio.to_thread(ask_orchestrator, prompt)
     envelope = next((e for e in reply["envelopes"] if e.get("kind") == "live_moment"), {})
     personalized = envelope.get("personalized") or {}

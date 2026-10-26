@@ -82,6 +82,19 @@ def test_stream_publishes_only_validated_cues(tmp_path, monkeypatch):
     assert [(data["cue"]["timestep"], data["validation"]["valid"]) for kind, data in events if kind == "moment"] == [(12, True)]
 
 
+def test_feedback_tone_reaches_live_enrichment(tmp_path, monkeypatch):
+    import asyncio
+
+    _setup(tmp_path, monkeypatch)
+    monkeypatch.setattr(replay, "CACHE_DIR", tmp_path / "cache")
+    prompts = []
+    monkeypatch.setattr(replay, "ask_orchestrator", lambda prompt: prompts.append(prompt) or {"text": "", "envelopes": []})
+    asyncio.run(replay.enrich(0, replay.moments(0)[0], replay.profile_from({"tone": "emotional", "tactical": "1", "depth": "deep"})))
+    assert "Tone: emotional" in prompts[0] and "Lead with tactics." in prompts[0] and '"depth": "deep"' in prompts[0]
+    bad = replay.profile_from({"tone": "shouty", "depth": "x"})
+    assert (bad["tone"], bad["depth"], bad["tactical"]) == ("neutral", "balanced", False)
+
+
 def test_agent_budget_blocks_after_hourly_limit(monkeypatch):
     monkeypatch.setattr(replay, "AGENT_CALLS_PER_HOUR", 2)
     replay.agent_calls.clear()

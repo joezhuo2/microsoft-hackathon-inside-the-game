@@ -257,7 +257,7 @@ def _recap(game_id: int, timestep: int, prefs: ViewerPreferences, stats: dict[st
 
 def respond(game_id: int, timestep: int, prefs: ViewerPreferences, stats: dict[str, list[int]], action: Action, question: str | None = None, moment_id: str | None = None, player_id: int | None = None) -> CommentaryResponse:
     if action == "question" and question:
-        player_id = player_id or _player_in_question(question)
+        player_id = player_id if player_id is not None else _player_in_question(question)
         action = "focus_player" if player_id is not None else detect_action(question)
     if action == "recap":
         return _recap(game_id, timestep, prefs, stats, question)
@@ -323,7 +323,7 @@ def respond(game_id: int, timestep: int, prefs: ViewerPreferences, stats: dict[s
         trail += [TrailItem(kind="metric", id=key, label=key.replace("_", " ")) for key in ("shots", "passes", "pass_accuracy")]
         interpretation = why
     else:
-        player_id = player_id or prefs.favorite_player_id or (int(moment["PLAYER_ID"]) if moment and moment.get("PLAYER_ID") is not None else None)
+        player_id = next((p for p in (player_id, prefs.favorite_player_id, int(moment["PLAYER_ID"]) if moment and moment.get("PLAYER_ID") is not None else None) if p is not None), None)
         if player_id is None:
             return respond(game_id, timestep, prefs, stats, "explain_more", question, moment_id)
         who = intel._name(player_id) or f"Player {player_id}"
