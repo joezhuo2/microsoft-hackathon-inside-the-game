@@ -24,14 +24,14 @@ MODEL = os.environ.get("AZURE_AI_MODEL_DEPLOYMENT_NAME", "gpt-5.4")
 MCP_URL = os.environ.get("MATCH_MCP_URL", "https://ca-match-mcp.gentlesmoke-46304b37.norwayeast.azurecontainerapps.io/mcp")
 MCP_CONNECTION = os.environ.get("MATCH_MCP_CONNECTION", "match-mcp")
 SPECIALIST_TIMEOUT_S = float(os.environ.get("SPECIALIST_TIMEOUT_S", "75"))
-DEFAULT_PROFILE = {"persona": "casual", "language": "en", "favorite_club_id": None, "favorite_player_id": None, "metric_focus": None}
+DEFAULT_PROFILE = {"persona": "casual", "language": "en", "favorite_club_id": None, "favorite_player_id": None, "metric_focus": None, "interests": {}, "depth": None, "tone": None, "tactical": False}
 
 log = logging.getLogger("orchestrator")
 credential = DefaultAzureCredential()
 specialists = {name: FoundryAgent(project_endpoint=PROJECT_ENDPOINT, agent_name=name, credential=credential) for name in ("match-moment-explainer", "player-lens", "match-narrator", "fan-personalizer")}
 explanations: dict[tuple[int, str], dict[str, Any]] = {}
 
-ProfileArg = Annotated[str, Field(description='JSON fan profile: {"persona": "casual"|"analyst", "language": "en"|"es"|..., "favorite_club_id": 0|1|null, "favorite_player_id": int|null, "metric_focus": str|null}. Use "{}" for defaults.')]
+ProfileArg = Annotated[str, Field(description='JSON fan profile: {"persona": "casual"|"analyst", "language": "en"|"es"|..., "favorite_club_id": 0|1|null, "favorite_player_id": int|null, "metric_focus": str|null, "interests": {"speed"|"passing"|"pressure"|"possession"|"money": "Obsessed"|"Into it"|"Light"|"Skip"}, "depth": "headlines"|"balanced"|"deep"|null, "tone": "neutral"|"emotional"|null, "tactical": bool}. Pass every field from the request unchanged. Use "{}" for defaults.')]
 AsOfArg = Annotated[int | None, Field(description="Timestep the viewer has reached (as_of from the request). Specialists only see data finished by then. null only for a full-match request.")]
 
 
@@ -123,7 +123,7 @@ Routing:
 - A question about one player, or player-focus mode -> player_focus.
 - A recap, summary or "how did the match go" -> match_recap.
 - To find game ids, moment ids or player names, use the match_intel tools (list_matches, get_key_moments, get_match_state, get_roster) first.
-Pass the fan profile from the request as profile_json; if none is given use "{}".
+Pass the fan profile from the request as profile_json unchanged (keep interests, depth, tone and tactical); if none is given use "{}".
 Known-at-this-time rule: when the request gives as_of (or a timestep), pass it as as_of to live_moment, player_focus, match_recap, list_matches and get_key_moments, and as timestep to get_match_state. Never mention anything after it.
 Club ids: 0 = Kestrel Vale FC, 1 = Port Saltmere United. Resolve a favourite player's name to its id with get_roster; never guess ids.
 

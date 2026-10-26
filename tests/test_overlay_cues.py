@@ -74,3 +74,22 @@ def test_interest_drops_and_bumps_cues(tmp_path, monkeypatch):
     assert cues.moment_cue(rhythm, [], {"interests": "possession:75"}).priority == "medium"
     assert cues.moment_cue(rhythm, [], {"interests": "possession:74"}).priority == "low"
     assert cues.moment_cue(goal, [], {"interests": "speed:100"}).priority == "high"
+
+
+def test_goal_cue_follows_profile_language(tmp_path, monkeypatch):
+    _setup(tmp_path, monkeypatch)
+    goal = replay.instant_overlay(replay.moments(0)[0], {"language": "es"})
+    cue = goal["cue"]
+    assert (cue["primary_insight"], cue["why_it_matters"]) == ("Gol, Home", "Home se pone por delante, 1-0. El partido cambia para ambos equipos.")
+    assert goal["cue_validation"]["valid"], goal["cue_validation"]
+    assert replay.instant_overlay(replay.moments(0)[0], {"language": "ja"})["cue"]["why_it_matters"].startswith("Home take the lead")
+
+
+def test_every_language_covers_every_template():
+    from string import Formatter
+
+    from football_analytics.i18n import TEXT
+
+    fields = lambda text: {name for _, name, _, _ in Formatter().parse(text) if name}
+    for words in TEXT.values():
+        assert all(fields(words[key]) == fields(english) for key, english in TEXT["en"].items())

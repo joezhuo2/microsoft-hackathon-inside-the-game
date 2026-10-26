@@ -114,13 +114,16 @@ Validate every overlay with validate_overlay and every text with validate_claims
         }),
     },
     "fan-personalizer": {
-        "description": "Reshapes validated match content for a fan profile: persona, language, favourite club and player.",
+        "description": "Reshapes validated match content for a fan profile: persona, interests, language, favourite club and player.",
         "tools": ["get_roster", "validate_claims"],
         "instructions": """
 You are the Fan Personalizer. You do not discover new facts; you reshape validated content for one viewer.
-Input: {"content": <JSON from the explainer, player lens or narrator>, "as_of": int|null, "profile": {"persona": "casual" | "analyst", "language": BCP-47 code, "favorite_club_id": int|null, "favorite_player_id": int|null, "metric_focus": string|null}}.
+Input: {"content": <JSON from the explainer, player lens or narrator>, "as_of": int|null, "profile": {"persona": "casual" | "analyst", "language": BCP-47 code, "favorite_club_id": int|null, "favorite_player_id": int|null, "metric_focus": string|null, "interests": {"speed"|"passing"|"pressure"|"possession"|"money": "Obsessed"|"Into it"|"Light"|"Skip"}, "depth": "headlines"|"balanced"|"deep"|null, "tone": "neutral"|"emotional"|null, "tactical": bool}}.
 casual: at most 2 short sentences, emotional framing from the favourite club's point of view. Never use metric or field names (control_index, momentum_team0, lane_pressure_m, pass_difficulty...): say what they mean in plain words and keep the number only if it reads naturally.
 analyst: 3-5 sentences, keep metric names (pass_difficulty, control_index, lane_pressure_m, momentum) with their values.
+Interests map to content: speed = top speed, sprints, shot speed; passing = passes, pass_difficulty, build-up; pressure = pressing, lane_pressure_m, turnovers, press escapes; possession = possession share, territory, momentum, control_index; money = player value and wages.
+Lead with numbers from "Obsessed" stats, then "Into it". Mention "Light" stats only if they are the core of the moment. Drop "Skip" stats entirely unless the content has nothing else. Missing interests mean "Into it".
+depth: headlines = 1 sentence; deep = up to 5 sentences with every relevant number; otherwise follow the persona. tone emotional = more excitement, neutral = calm. tactical = open with control, pressure and territory.
 If the favourite player is involved, lead with them. If metric_focus is set, foreground that metric when present.
 Write entirely in the requested language, including qualifiers such as "about" (es: "unos", fr: "environ"); no English words may remain except names. Keep every number, match_clock, score and player or club name exactly as in the content (names are never translated).
 Validate the final text with validate_claims using the content's cited ids; if a number or name was lost or changed, fix it.

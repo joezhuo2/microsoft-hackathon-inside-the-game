@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from . import mcp_server as intel
 from .match_intelligence import match_clock
+from .i18n import t, word
 from .overlay_cues import band, interests, why_it_matters
 
 Action = Literal["explain_more", "show_tactics", "focus_player", "simpler", "numbers", "why", "recap", "question"]
@@ -271,7 +272,8 @@ def respond(game_id: int, timestep: int, prefs: ViewerPreferences, stats: dict[s
     short = [clubs.get("0", {}).get("short", "Home"), clubs.get("1", {}).get("short", "Away")]
     metrics = json.loads(moment["metrics"]) if moment and isinstance(moment.get("metrics"), str) else {}
     name = intel._name(moment.get("PLAYER_ID")) if moment else None
-    why = why_it_matters(moment["moment_type"], metrics, moment.get("TEAM_ID"), name) if moment else "No standout moment in the last few minutes; the game is in a settled phase."
+    lang = prefs.language
+    why = why_it_matters(moment["moment_type"], metrics, moment.get("TEAM_ID"), name, lang) if moment else t(lang, "quiet")
     if moment:
         event_ids = moment["event_ids"].split(";") if isinstance(moment.get("event_ids"), str) else []
     else:
@@ -280,12 +282,12 @@ def respond(game_id: int, timestep: int, prefs: ViewerPreferences, stats: dict[s
     if rhythm:
         label = rhythm["rhythm"]
         trail.append(TrailItem(kind="pattern", id=f"window-{int(rhythm['window'])}", label=f"{label} spell"))
-        rhythm_line = (f"Right now it's a {label} spell." if plain else f"Current window is {label}: control index {round(float(rhythm['control_index']), 2)}, momentum {round(float(rhythm['momentum_team0']), 2)} towards {short[0] if rhythm['momentum_team0'] >= 0 else short[1]}.")
+        rhythm_line = t(lang, "rhythm_plain", label=word(lang, label, label)) if plain else t(lang, "rhythm_deep", label=word(lang, label, label), control=round(float(rhythm["control_index"]), 2), momentum=round(float(rhythm["momentum_team0"]), 2), side=short[0] if rhythm["momentum_team0"] >= 0 else short[1])
 
     if not moment:
-        headline = f"{match_clock(timestep)}: settled phase"
+        headline = t(lang, "settled_headline", clock=match_clock(timestep))
     elif moment["moment_type"] == "goal":
-        headline = f"Goal, {_club(moment.get('TEAM_ID'))}"
+        headline = t(lang, "goal_insight", club=_club(moment.get("TEAM_ID")))
     else:
         headline = f"{name}: {moment['fact_hint']}" if name else moment["fact_hint"]
     if moment:
@@ -297,12 +299,12 @@ def respond(game_id: int, timestep: int, prefs: ViewerPreferences, stats: dict[s
             possession, shots = stats["possession"], stats.get("shots", [0, 0])
             observed = [f"Possession so far {possession[0]}% {short[0]} to {possession[1]}% {short[1]}", f"Shots {shots[0]} to {shots[1]}"][:limit]
         trail += [TrailItem(kind="event", id=eid, label=text) for eid, text in lines]
-        interpretation = why if action != "simpler" else why.split(":")[0].split(". ")[0].rstrip(".") + "."
+        interpretation = why if action != "simpler" else why.split(":")[0].split(". ")[0].rstrip(" .") + "."
         if action == "explain_more" and rhythm_line:
             interpretation = f"{interpretation} {rhythm_line}"
         if action == "explain_more" and prefs.depth == "deep" and moment and moment["moment_type"] in ("momentum_shift", "high_turnover", "press_escape", "goal"):
             team = moment.get("TEAM_ID")
-            projection = f"If this pattern holds, expect {_club(team)} to keep pushing higher for the next few minutes." if team is not None else None
+            projection = t(lang, "projection", club=_club(team)) if team is not None else None
     elif action == "show_tactics":
         possession, wins = stats.get("possession", [50, 50]), stats.get("ball_wins", [0, 0])
         observed = [f"Possession so far {possession[0]}% {short[0]} to {possession[1]}% {short[1]}", f"Ball wins {wins[0]} to {wins[1]}"]
@@ -312,9 +314,9 @@ def respond(game_id: int, timestep: int, prefs: ViewerPreferences, stats: dict[s
         trail += [TrailItem(kind="metric", id="possession", label="possession share"), TrailItem(kind="metric", id="ball_wins", label="ball wins")]
         if rhythm:
             leader = short[0] if rhythm["possession_share_team0"] >= 0.5 else short[1]
-            interpretation = (f"{leader} have the ball more right now. " if plain else f"{leader} are dictating this spell. ") + (rhythm_line or "")
+            interpretation = t(lang, "lead_plain" if plain else "lead_deep", leader=leader) + (rhythm_line or "")
         else:
-            interpretation = "Not enough play yet to read a tactical pattern."
+            interpretation = t(lang, "no_pattern")
     elif action == "numbers":
         observed = [f"{label}: {values[0]} {short[0]} – {values[1]} {short[1]}" for label, values in (("Shots", stats.get("shots")), ("Passes", stats.get("passes")), ("Pass accuracy %", stats.get("pass_accuracy")), ("Ball wins", stats.get("ball_wins")), ("Sprints", stats.get("sprints"))) if values][:max(limit, 3)]
         observed += [f"{key.replace('_', ' ')}: {value}" for key, value in metrics.items() if isinstance(value, (int, float)) and not isinstance(value, bool)][: 2 if prefs.depth != "headlines" else 0]
@@ -326,15 +328,15 @@ def respond(game_id: int, timestep: int, prefs: ViewerPreferences, stats: dict[s
             return respond(game_id, timestep, prefs, stats, "explain_more", question, moment_id)
         who = intel._name(player_id) or f"Player {player_id}"
         so_far = _player_so_far(game_id, player_id, timestep)
-        headline = f"Player focus: {who}"
+        headline = t(lang, "focus_headline", who=who)
         observed = [f"{so_far['touches']} involvements so far, {so_far['recent_touches']} in the last spell", f"{so_far['passes']} completed passes, {so_far['misplaced']} misplaced", f"{so_far['shots']} shots, {so_far['interceptions']} interceptions, {so_far['carries']} carries"][:limit]
         trail.append(TrailItem(kind="metric", id=f"player-{player_id}", label=f"{who} events up to {match_clock(timestep)}"))
-        trend = "more involved than earlier" if so_far["recent_touches"] > so_far["earlier_rate"] else "quieter than earlier" if so_far["recent_touches"] < so_far["earlier_rate"] else "as involved as earlier"
+        trend = "trend_up" if so_far["recent_touches"] > so_far["earlier_rate"] else "trend_down" if so_far["recent_touches"] < so_far["earlier_rate"] else "trend_same"
         involved = moment is not None and moment.get("PLAYER_ID") == player_id
-        interpretation = f"{who} is {trend} in this match." + (f" They were at the centre of the latest moment: {why}" if involved else "")
+        interpretation = t(lang, "focus", who=who, trend=t(lang, trend)) + (t(lang, "focus_moment", why=why) if involved else "")
         action = "focus_player"
     if prefs.tone == "emotional" and interpretation:
-        interpretation = ("What a moment! " if moment and moment["moment_type"] in ("goal", "shot", "momentum_shift") else "Here's the story: ") + interpretation
+        interpretation = t(lang, "wow" if moment and moment["moment_type"] in ("goal", "shot", "momentum_shift") else "story") + interpretation
     if prefs.tactical and action not in ("show_tactics", "focus_player") and rhythm_line and rhythm_line not in interpretation:
         interpretation = f"{interpretation} {rhythm_line}"
     return CommentaryResponse(
