@@ -303,7 +303,7 @@ input[type="checkbox"] { accent-color: #fff; }
 .q-row button:disabled { opacity: 0.4; cursor: default; }
 body.studio #cam { top: 18px; }
 #feed { position: fixed; top: 322px; right: 18px; width: 380px; max-height: calc(100vh - 460px); padding: 12px 14px; overflow: hidden; display: flex; flex-direction: column; }
-#feedList { flex: 1 1 auto; min-height: 0; overflow: hidden; }
+#feedList { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 #history { flex: none; margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--edge); }
 #history summary { cursor: pointer; font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
 #historyList { margin: 6px 0 0; padding: 0; list-style: none; max-height: 16vh; overflow-y: auto; font-size: 12px; }
