@@ -397,9 +397,9 @@ async def ask(request: Request) -> JSONResponse:
     profile = profile_from(body)
     if not question.strip():
         return JSONResponse({"error": "empty question"}, status_code=400)
-    style = f"Viewer type: {profile['persona']}. Answer depth: {body.get('depth', 'balanced')}. Tone: {body.get('tone', 'neutral')}. {commentary.interest_line(profile['interests'])}" + (" Lead with tactics." if body.get("tactical") else "")
+    style = f"Viewer type: {profile['persona']}. Answer depth: {profile['depth']}. Tone: {profile['tone']}. {commentary.interest_line(profile['interests'])}" + (" Lead with tactics." if profile["tactical"] else "")
     route = f"Match recap: call match_recap with game_id={game_id} and as_of={timestep}.\n" if body.get("action") == "recap" else ""
-    prompt = f"Fan question during game_id={game_id} at timestep={timestep} ({match_clock(timestep)}); pass as_of={timestep} to every tool. profile_json={json.dumps({**agent_profile(profile), 'depth': body.get('depth', 'balanced'), 'tone': body.get('tone', 'neutral'), 'tactical': bool(body.get('tactical'))})}\n{style}\n{route}Question: {question}"
+    prompt = f"Fan question during game_id={game_id} at timestep={timestep} ({match_clock(timestep)}); pass as_of={timestep} to every tool. profile_json={json.dumps(agent_profile(profile))}\n{style}\n{route}Question: {question}"
     try:
         reply = await asyncio.to_thread(ask_orchestrator, prompt)
     except BudgetExceeded:

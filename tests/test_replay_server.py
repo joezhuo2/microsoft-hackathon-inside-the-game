@@ -63,6 +63,8 @@ def test_ask_returns_only_the_validated_answer(tmp_path, monkeypatch):
     assert not client.post("/api/ask", json={"game": 0, "timestep": 11, "question": "What happened?"}).json()["verified"]
     client.post("/api/ask", json={"game": 0, "timestep": 3000, "question": "Give me the match recap.", "action": "recap"})
     assert "call match_recap with game_id=0 and as_of=3000" in prompts[-1] and "as_of=20" in prompts[0]
+    client.post("/api/ask", json={"game": 0, "timestep": 20, "question": "What happened?", "depth": "x", "tone": "shouty", "tactical": True})
+    assert '"depth": "balanced", "tone": "neutral", "tactical": true' in prompts[-1] and "Answer depth: balanced. Tone: neutral." in prompts[-1] and "shouty" not in prompts[-1]
 
 
 def test_stream_publishes_only_validated_cues(tmp_path, monkeypatch):
