@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field, field_validator
 from . import mcp_server as intel
 from .match_intelligence import match_clock
 from .i18n import t, word
-from .overlay_cues import band, interests, why_it_matters
+from .overlay_cues import band, human, insight, interests, stat_line, why_it_matters
 
 Action = Literal["explain_more", "show_tactics", "focus_player", "simpler", "numbers", "why", "recap", "question"]
 Depth = Literal["headlines", "balanced", "deep"]
@@ -140,7 +140,7 @@ def apply_feedback(prefs: ViewerPreferences, event: FeedbackEvent) -> FeedbackRe
             effects.append("No player in this moment to follow. Pick one in Match centre.")
         else:
             updated.favorite_player_id = player
-            effects.append(f"Following {intel._name(player) or player}: their moments get the spotlight.")
+            effects.append(f"Following {intel._name(player) or 'this player'}: their moments get the spotlight.")
     return FeedbackResult(preferences=updated, effects=effects)
 
 
@@ -190,7 +190,7 @@ def _event_lines(game_id: int, event_ids: list[str], timestep: int) -> list[tupl
         who = intel._name(event["PLAYER_ID"]) or _club(event["TEAM_ID"])
         detail = EVENT_WORDS.get(event["event_type"], event["event_type"].replace("_candidate", "").replace("_", " "))
         speed = event.get("ball_speed_kmh")
-        extra = f" at about {round(float(speed), 1)} km/h" if event["event_type"] == "shot_candidate" and speed is not None and not pd.isna(speed) else ""
+        extra = f" at about {human(float(speed))} km/h" if event["event_type"] == "shot_candidate" and speed is not None and not pd.isna(speed) else ""
         lines.append((event["event_id"], f"{match_clock(event['start_timestep'])} {who} {detail}{extra}"))
     return lines
 
@@ -228,7 +228,7 @@ def _moment_line(moment: dict[str, Any]) -> str:
     name = intel._name(moment.get("PLAYER_ID"))
     if moment["moment_type"] == "goal":
         return f"{match_clock(moment['known_timestep'])} Goal, {_club(moment.get('TEAM_ID'))}" + (f" ({name})" if name else "") + f": {json.loads(moment['metrics']).get('score_after', '')}"
-    return f"{match_clock(moment['known_timestep'])} " + (f"{name}: {moment['fact_hint']}" if name else moment["fact_hint"])
+    return f"{match_clock(moment['known_timestep'])} " + insight(moment, name)
 
 
 def _recap(game_id: int, timestep: int, prefs: ViewerPreferences, stats: dict[str, list[int]], question: str | None) -> CommentaryResponse:
@@ -289,7 +289,7 @@ def respond(game_id: int, timestep: int, prefs: ViewerPreferences, stats: dict[s
     elif moment["moment_type"] == "goal":
         headline = t(lang, "goal_insight", club=_club(moment.get("TEAM_ID")))
     else:
-        headline = f"{name}: {moment['fact_hint']}" if name else moment["fact_hint"]
+        headline = insight(moment, name)
     if moment:
         trail.insert(0, TrailItem(kind="moment", id=moment["moment_id"], label=headline))
     if action in ("why", "explain_more", "simpler"):
@@ -319,14 +319,14 @@ def respond(game_id: int, timestep: int, prefs: ViewerPreferences, stats: dict[s
             interpretation = t(lang, "no_pattern")
     elif action == "numbers":
         observed = [f"{label}: {values[0]} {short[0]} – {values[1]} {short[1]}" for label, values in (("Shots", stats.get("shots")), ("Passes", stats.get("passes")), ("Pass accuracy %", stats.get("pass_accuracy")), ("Ball wins", stats.get("ball_wins")), ("Sprints", stats.get("sprints"))) if values][:max(limit, 3)]
-        observed += [f"{key.replace('_', ' ')}: {value}" for key, value in metrics.items() if isinstance(value, (int, float)) and not isinstance(value, bool)][: 2 if prefs.depth != "headlines" else 0]
+        observed += [line for key, value in metrics.items() if (line := stat_line(key, value, plain))][: 2 if prefs.depth != "headlines" else 0]
         trail += [TrailItem(kind="metric", id=key, label=key.replace("_", " ")) for key in ("shots", "passes", "pass_accuracy")]
         interpretation = why
     else:
         player_id = next((p for p in (player_id, prefs.favorite_player_id, int(moment["PLAYER_ID"]) if moment and moment.get("PLAYER_ID") is not None else None) if p is not None), None)
         if player_id is None:
             return respond(game_id, timestep, prefs, stats, "explain_more", question, moment_id)
-        who = intel._name(player_id) or f"Player {player_id}"
+        who = intel._name(player_id) or "This player"
         so_far = _player_so_far(game_id, player_id, timestep)
         headline = t(lang, "focus_headline", who=who)
         observed = [f"{so_far['touches']} involvements so far, {so_far['recent_touches']} in the last spell", f"{so_far['passes']} completed passes, {so_far['misplaced']} misplaced", f"{so_far['shots']} shots, {so_far['interceptions']} interceptions, {so_far['carries']} carries"][:limit]

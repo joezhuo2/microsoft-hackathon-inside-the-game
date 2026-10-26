@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
-from typing import Any, Literal
+from typing import Any, Literal, NamedTuple
 
 import pandas as pd
 from pydantic import BaseModel, Field
@@ -13,29 +13,37 @@ from .overlay_cues import CONFIDENCE, DURATION_MS, Metric, OverlayCue, PlayerFoc
 
 PROGRESSIVE_M = 10.0
 HARD_PASS = 50.0
-MIN_SHARE = 0.2
 SHOT_TO_GOAL = 180
+TEAM_VALUE_PRIOR_GBP = 100_000
 CUE_ACTIONS = ("goal", "shot", "progressive_pass", "interception")
 
-ACTIONS: dict[str, tuple[str, str, int]] = {
-    "goal": ("Goals", "goal", 150_000),
-    "shot": ("Shots", "shot", 15_000),
-    "progressive_pass": ("Progressive passes", "progressive pass", 20_000),
-    "hard_pass": ("Hard passes completed", "hard pass", 10_000),
-    "pass": ("Completed passes", "completed pass", 4_000),
-    "interception": ("Interceptions", "interception", 15_000),
-    "tackle": ("Tackles", "tackle", 8_000),
-    "pressure": ("Pressing actions", "pressing action", 4_000),
-    "dribble": ("Dribbles", "dribble", 10_000),
-    "shot_faced": ("Shots faced without conceding", "shot survived", 12_000),
-    "loss": ("Possession losses", "possession loss", -6_000),
-    "misplaced": ("Misplaced passes", "misplaced pass", -3_000),
+
+class Award(NamedTuple):
+    label: str
+    singular: str
+    gbp: int
+
+
+# shortcut: hand-set illustrative award per action, not fitted to outcomes; replace with a trained action-value model before real use.
+ACTIONS: dict[str, Award] = {
+    "goal": Award("Goals", "goal", 150_000),
+    "shot": Award("Shots", "shot", 15_000),
+    "progressive_pass": Award("Progressive passes", "progressive pass", 20_000),
+    "hard_pass": Award("Hard passes completed", "hard pass", 10_000),
+    "pass": Award("Completed passes", "completed pass", 4_000),
+    "interception": Award("Interceptions", "interception", 15_000),
+    "tackle": Award("Tackles", "tackle", 8_000),
+    "pressure": Award("Pressing actions", "pressing action", 4_000),
+    "dribble": Award("Dribbles", "dribble", 10_000),
+    "shot_faced": Award("Shots faced without conceding", "shot survived", 12_000),
+    "loss": Award("Possession losses", "possession loss", -6_000),
+    "misplaced": Award("Misplaced passes", "misplaced pass", -3_000),
 }
 EVENT_ACTION = {"shot_candidate": "shot", "interception_candidate": "interception", "dribble_candidate": "dribble", "possession_loss_candidate": "loss", "incomplete_pass_candidate": "misplaced"}
 SYNTHETIC_ACTION = {"tackle_synthetic": "tackle", "pressure_synthetic": "pressure"}
 
 ROLE_PAY: dict[str, tuple[str, tuple[str, ...]]] = {
-    "goalkeeper": ("Keepers are paid to keep the ball out; every opposition shot that does not go in counts for them.", ("shot_faced", "pass")),
+    "goalkeeper": (f"Keepers are paid to keep the ball out; an opposition shot counts for them once {match_clock(SHOT_TO_GOAL)} of match clock passes without a goal.", ("shot_faced", "pass")),
     "centre back": ("Centre-backs are paid to win the ball back and start attacks without risk.", ("interception", "tackle", "pass")),
     "left back": ("Full-backs are paid to defend their flank and carry the ball forward.", ("tackle", "pressure", "progressive_pass")),
     "right back": ("Full-backs are paid to defend their flank and carry the ball forward.", ("tackle", "pressure", "progressive_pass")),
@@ -104,7 +112,7 @@ def _shots_faced(events: pd.DataFrame, moments: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for _, shot in events[(events["event_type"] == "shot_candidate") & events["TEAM_ID"].notna()].iterrows():
         defending = 1 - int(shot["TEAM_ID"])
-        scored = goals[(goals["GAME_ID"] == shot["GAME_ID"]) & (goals["end_timestep"] - shot["start_timestep"]).between(0, SHOT_TO_GOAL)]
+        scored = goals[(goals["GAME_ID"] == shot["GAME_ID"]) & (goals["TEAM_ID"] == shot["TEAM_ID"]) & (goals["end_timestep"] - shot["start_timestep"]).between(0, SHOT_TO_GOAL)]
         if defending in keeper_of and scored.empty:
             rows.append({"event_id": shot["event_id"], "GAME_ID": shot["GAME_ID"], "start_timestep": min(int(shot["start_timestep"]) + SHOT_TO_GOAL, intel._match_end(int(shot["GAME_ID"]))), "PLAYER_ID": keeper_of[defending], "action": "shot_faced", "synthetic": False})
     return pd.DataFrame(rows, columns=["event_id", "GAME_ID", "start_timestep", "PLAYER_ID", "action", "synthetic"])
@@ -172,14 +180,22 @@ def _why_paid(name: str, person: dict[str, Any], stats: list[RoleStat], language
     return text
 
 
-def _why_value(name: str, lines: list[ActionLine], value: int, wage_so_far: int, verdict: Verdict, language: str = "en") -> str:
+def _team_shares(game_id: int, player_id: int, timestep: int, wage: int) -> tuple[float, float]:
+    team = [int(pid) for pid, person in intel._roster()["players"].items() if (int(pid) >= 100) == (player_id >= 100) and (not person.get("bench") or int(pid) == player_id)]
+    rows = actions()
+    rows = rows[(rows["GAME_ID"] == game_id) & (rows["start_timestep"] <= timestep) & rows["PLAYER_ID"].isin(team)]
+    team_wage = sum(int(_player(pid).get("weekly_wage_gbp", 0)) for pid in team)
+    return float(rows.groupby("PLAYER_ID")["value_gbp"].sum().clip(lower=0).sum()), (wage / team_wage if team_wage else 0.0)
+
+
+def _why_value(name: str, lines: list[ActionLine], value: int, value_pct: int, wage_pct: int, verdict: Verdict, language: str = "en") -> str:
     gains = sorted((line for line in lines if line.value_gbp > 0), key=lambda line: -line.value_gbp)[:2]
     if not gains:
-        return t(language, "value_none", name=name, wage=_gbp(wage_so_far))
+        return t(language, "value_none", name=name, wage_pct=wage_pct)
     drivers = t(language, "and").join(f"{line.count} {_label(language, line.action, line.count)} ({_gbp(line.value_gbp)})" for line in gains)
     costs = [line for line in lines if line.value_gbp < 0]
     cost = t(language, "cost", amount=_gbp(-sum(line.value_gbp for line in costs))) if costs else ""
-    return t(language, "value", value=_gbp(value), wage=_gbp(wage_so_far), drivers=drivers, cost=cost, verdict=word(language, verdict, verdict))
+    return t(language, "value", value=_gbp(value), value_pct=value_pct, wage_pct=wage_pct, drivers=drivers, cost=cost, verdict=word(language, verdict, verdict))
 
 
 def player_value(game_id: int, player_id: int, timestep: int, steps: int, language: str = "en") -> PlayerValue:
@@ -194,8 +210,9 @@ def player_value(game_id: int, player_id: int, timestep: int, steps: int, langua
             lines.append(ActionLine(action=action, label=label, count=len(hits), unit_gbp=unit, value_gbp=int(unit * len(hits)), synthetic=bool(hits["synthetic"].any()), moments=[match_clock(t) for t in hits["start_timestep"]][-5:]))
     value = sum(line.value_gbp for line in lines)
     wage = int(person.get("weekly_wage_gbp", 0))
-    wage_so_far = int(wage * max(min(timestep / max(steps - 1, 1), 1.0), MIN_SHARE))
-    ratio = round(value / wage_so_far, 2) if wage_so_far else 0.0
+    wage_so_far = int(wage * min(timestep / max(steps - 1, 1), 1.0))
+    team_value, wage_share = _team_shares(game_id, player_id, timestep, wage)
+    ratio = round((max(value, 0) / wage_share + TEAM_VALUE_PRIOR_GBP) / (team_value + TEAM_VALUE_PRIOR_GBP), 2) if wage_share else 0.0
     verdict = _verdict(ratio)
     stats = _role_stats(game_id, player_id, person.get("role", ""))
     team = 0 if player_id < 100 else 1
@@ -204,7 +221,7 @@ def player_value(game_id: int, player_id: int, timestep: int, steps: int, langua
         club=intel._roster()["clubs"].get(str(team), {}).get("name"), role=person.get("role", "player"), weekly_wage_gbp=wage,
         contract_note=person.get("contract_note", "squad player"), wage_so_far_gbp=wage_so_far, match_value_gbp=value, value_ratio=ratio,
         verdict=verdict, breakdown=sorted(lines, key=lambda line: -abs(line.value_gbp)), role_stats=stats,
-        why_paid=_why_paid(name, person, stats, language), why_value=_why_value(name, lines, value, wage_so_far, verdict, language),
+        why_paid=_why_paid(name, person, stats, language), why_value=_why_value(name, lines, value, round(100 * max(value, 0) / team_value) if team_value else 0, round(100 * wage_share), verdict, language),
     )
 
 

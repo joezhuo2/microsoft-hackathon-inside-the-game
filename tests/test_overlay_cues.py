@@ -93,3 +93,14 @@ def test_every_language_covers_every_template():
     fields = lambda text: {name for _, name, _, _ in Formatter().parse(text) if name}
     for words in TEXT.values():
         assert all(fields(words[key]) == fields(english) for key, english in TEXT["en"].items())
+
+
+def test_plain_numbers_labels_and_factual_templates():
+    assert [cues.human(v) for v in (38.86, 0.459, 3.27, 120.0, 7, None)] == [39, 0.5, 3.3, 120, 7, None]
+    assert cues.stat_line("ball_travel_m", 38.86) == "pass length: 39 m"
+    assert cues.stat_line("momentum_after", 0.459) == "momentum: 0.5" and cues.stat_line("momentum_after", 0.459, plain=True) is None
+    assert cues.stat_line("possession_share_team0", 0.51) is None and cues.stat_line("turnovers", 4, plain=True) == "turnovers: 4"
+    assert cues.insight({"moment_type": "shot", "fact_hint": "Shot candidate"}, "Daniel Moreau") == "Daniel Moreau: Shot"
+    text = cues.why_it_matters("key_pass", {"pass_difficulty": 71.8, "lane_pressure_m": 0.59, "ball_travel_m": 38.86}, 0, None)
+    assert text == "A completed pass of about 39 m, with the nearest opponent 0.6 m from its path."
+    assert "None" not in cues.why_it_matters("shot", {"shot_speed_kmh": 101.3}, 0, None)

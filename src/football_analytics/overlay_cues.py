@@ -36,6 +36,8 @@ INTERESTS = ("speed", "passing", "pressure", "possession", "money")
 BANDS = ((75, "Obsessed"), (50, "Into it"), (20, "Light"), (0, "Skip"))
 SKIP_BELOW, BUMP_FROM = 20, 75
 STAT_BY_EVENT = {"top_speed": "speed", "key_pass": "passing", "sustained_build_up": "passing", "press_escape": "pressure", "high_turnover": "pressure", "interception": "pressure", "momentum_shift": "possession", "rhythm_change": "possession"}
+STAT_LABELS = {"shot_speed_kmh": ("shot speed", "km/h"), "distance_to_goal_line_m": ("to goal line", "m"), "pass_difficulty": ("difficulty", None), "ball_travel_m": ("pass length", "m"), "lane_pressure_m": ("lane gap", "m"), "top_speed_kmh": ("top speed", "km/h"), "sprint_distance_m": ("sprint", "m"), "opponents_within_5m": ("opponents <5m", None), "x_from_own_goal_m": ("from own goal", "m"), "control_index": ("control", None), "turnovers": ("turnovers", None), "consecutive_passes": ("passes", None), "players_involved": ("players", None), "momentum_after": ("momentum", None)}
+PLAIN_HINT = {"shot": "Shot", "press_escape": "Carried the ball with opponents close"}
 
 
 class Metric(BaseModel):
@@ -91,6 +93,27 @@ def band(value: int) -> str:
     return next(name for floor, name in BANDS if value >= floor)
 
 
+def human(value: Any) -> Any:
+    if not isinstance(value, float):
+        return value
+    value = round(value) if abs(value) >= 10 else round(value, 1)
+    return int(value) if float(value).is_integer() else value
+
+
+def stat_line(key: str, value: Any, plain: bool = False) -> str | None:
+    if key not in STAT_LABELS or isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    label, unit = STAT_LABELS[key]
+    if plain and unit is None and not isinstance(value, int):
+        return None
+    return f"{label}: {human(value)}" + (f" {unit}" if unit else "")
+
+
+def insight(moment: dict[str, Any], name: str | None) -> str:
+    hint = PLAIN_HINT.get(moment["moment_type"], moment["fact_hint"])
+    return f"{name}: {hint}" if name else hint
+
+
 def interest(kind: str, profile: dict[str, Any]) -> int:
     stat = "money" if kind.startswith("value_") else STAT_BY_EVENT.get(kind)
     return interests(profile.get("interests")).get(stat, 50) if stat else 50
@@ -131,16 +154,20 @@ def why_it_matters(kind: str, metrics: dict[str, Any], team: Any, name: str | No
     if kind == "goal" and metrics.get("score_after") and team is not None and not pd.isna(team):
         return tr(language, _goal_story(int(team), metrics["score_after"]), club=club, score=metrics["score_after"])
     if kind == "shot":
-        speed = metrics.get("shot_speed_kmh")
-        return tr(language, "shot_fast" if speed else "shot", speed=speed, distance=metrics.get("distance_to_goal_line_m"), club=club)
+        speed, distance = human(metrics.get("shot_speed_kmh")), human(metrics.get("distance_to_goal_line_m"))
+        pace = tr(language, "shot_pace", speed=speed) if speed else ""
+        where = tr(language, "shot_where", distance=distance) if distance is not None else ""
+        return tr(language, "shot", who=who, pace=pace, where=where)
     if kind == "key_pass":
-        return tr(language, "key_pass", difficulty=metrics.get("pass_difficulty"), gap=metrics.get("lane_pressure_m"), length=metrics.get("ball_travel_m"))
+        gap = human(metrics.get("lane_pressure_m"))
+        near = tr(language, "key_pass_near", gap=gap) if gap is not None else ""
+        return tr(language, "key_pass", length=human(metrics.get("ball_travel_m")), near=near)
     if kind == "sustained_build_up":
         return tr(language, "build_up", passes=metrics.get("consecutive_passes"), players=metrics.get("players_involved"), club=club)
     if kind == "press_escape":
         return tr(language, "press_escape", who=who, opponents=metrics.get("opponents_within_5m"))
     if kind == "high_turnover":
-        return tr(language, "high_turnover", x=metrics.get("x_from_own_goal_m"), club=club)
+        return tr(language, "high_turnover", x=human(metrics.get("x_from_own_goal_m")), club=club)
     if kind == "momentum_shift":
         return tr(language, "momentum", side=_club(0 if (metrics.get("momentum_after") or 0) > 0 else 1))
     if kind == "rhythm_change":
@@ -149,7 +176,7 @@ def why_it_matters(kind: str, metrics: dict[str, Any], team: Any, name: str | No
             return tr(language, "rhythm_chaos", origin=word(language, str(metrics.get("from")), str(metrics.get("from"))), turnovers=metrics.get("turnovers"))
         return tr(language, "rhythm_control" if target == "control" else "rhythm_even")
     if kind == "top_speed":
-        return tr(language, "top_speed", who=who, speed=metrics.get("top_speed_kmh"), distance=metrics.get("sprint_distance_m"))
+        return tr(language, "top_speed", who=who, speed=human(metrics.get("top_speed_kmh")), distance=human(metrics.get("sprint_distance_m")))
     return tr(language, "moment")
 
 
@@ -195,7 +222,7 @@ def moment_cue(moment: dict[str, Any], stats: list[dict[str, Any]], profile: dic
         timestep=int(moment["known_timestep"]),
         match_clock=match_clock(moment["known_timestep"]),
         event_type=kind,
-        primary_insight=tr(profile.get("language"), "goal_insight", club=_club(team)) if kind == "goal" else (f"{name}: {moment['fact_hint']}" if name else moment["fact_hint"]),
+        primary_insight=tr(profile.get("language"), "goal_insight", club=_club(team)) if kind == "goal" else insight(moment, name),
         why_it_matters=why_it_matters(kind, metrics, team, name, profile.get("language", "en"))[:220],
         confidence=confidence,
         evidence=evidence,

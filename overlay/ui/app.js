@@ -271,6 +271,8 @@ function logCue(cue) {
   [...$("historyList").children].slice(MAX_HISTORY).forEach((n) => n.remove());
 }
 
+const confBand = (c) => (c >= 0.8 ? "High" : c >= 0.5 ? "Medium" : "Low");
+
 function metricNodes(metrics) {
   return metrics.map((s) => el("div", {}, el("b", {}, `${s.value}${s.unit ? " " + s.unit : ""}`), el("span", {}, s.label)));
 }
@@ -300,7 +302,7 @@ function showAlert(data, onDone) {
     const lowConfidence = Boolean(cue && cue.confidence < 0.5);
     box.classList.toggle("low-confidence", lowConfidence);
     $("alertTrail").replaceChildren(...(cue && (analyst() || lowConfidence) ? [
-      el("span", { class: "tag ghost" }, `${cue.evidence} · ${Math.round(cue.confidence * 100)}%`),
+      el("span", { class: "tag ghost" }, `${cue.evidence} · ${confBand(cue.confidence)} confidence`),
       lowConfidence ? el("span", { class: "tag warn" }, "low confidence") : null,
       analyst() && cue.source_event_ids.length ? el("span", { class: "ids" }, `events ${cue.source_event_ids.slice(-3).join(", ")}`) : null,
     ].filter(Boolean) : []));
@@ -438,7 +440,7 @@ function renderQueue() {
         el("button", { type: "button", "data-air": "", ...(dropped || item.status === "aired" ? { disabled: "" } : {}) }, item.status === "aired" ? "On air" : "Air"),
         " ",
         el("button", { type: "button", "data-drop": "", ...(item.status === "aired" ? { disabled: "" } : {}) }, dropped ? "Dropped" : "Drop")),
-      el("span", { class: "q-meta" }, `conf ${Math.round(cue.confidence * 100)}% · ${cue.evidence} · ${cue.duration_ms / 1000}s · ts ${cue.timestep}${item.data.cue_validation?.valid === false ? " · failed check" : ""}`));
+      el("span", { class: "q-meta" }, `${confBand(cue.confidence)} confidence · ${cue.evidence} · ${cue.duration_ms / 1000}s · ts ${cue.timestep}${item.data.cue_validation?.valid === false ? " · failed check" : ""}`));
   }));
 }
 
@@ -507,6 +509,7 @@ function connect(fromStart = false) {
   const source = new EventSource(`${API}/api/stream?${query}`);
   state.source = source;
   status("Connecting…");
+  source.addEventListener("status", (e) => { const d = JSON.parse(e.data); status(d.message, d.state === "rate_limited"); });
   source.addEventListener("start", (e) => {
     const s = JSON.parse(e.data);
     status(`Game ${s.game_id} live · ${s.enrich ? "AI analysis on" : "instant overlays only"}`);

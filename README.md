@@ -98,6 +98,9 @@ The overlay opens with five "how much I care" dials (speed, passing, pressure, p
 
 Language: English, Español, Français, Deutsch, Português and Italiano translate the deterministic text too (cue explanations, commentary interpretation, value explanations, quick replies and transitions; table in `src/football_analytics/i18n.py`). Data-derived labels such as moment hints, stat lines and contract notes stay English. Arabic, Japanese and Chinese are marked "AI text only": only the agent-personalized text is translated.
 
+Timing disclosure (also shown in Match centre): the match clock is normalized, 3000 timesteps scaled to 90 minutes (`timesteps_per_match`, `match_minutes`), not real match time.
+Speeds and distances are inferred from position changes at an assumed `seconds_per_timestep: 0.1` (`config.yaml`); the source data does not state its frame timing.
+
 The same UI (`overlay/ui/`) runs two ways:
 
 - Web: open `http://127.0.0.1:8765` while the replay server runs.

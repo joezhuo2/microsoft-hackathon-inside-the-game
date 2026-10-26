@@ -9,6 +9,7 @@ import re
 import threading
 import time
 from collections import deque
+from collections.abc import AsyncIterator, Awaitable, Callable
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -44,11 +45,12 @@ PROFILE_KEYS = ("persona", "language", "favorite_club_id", "favorite_player_id",
 MOMENT_ID = re.compile(r"\bM\d+-\d{4}\b")
 EVENT_ID = re.compile(r"\b\d+-\d{6}\b")
 TEMPLATES = {"goal": "lower_third", "shot": "stat_card", "key_pass": "stat_card", "top_speed": "player_tag", "press_escape": "player_tag", "high_turnover": "stat_card", "momentum_shift": "momentum_bar", "rhythm_change": "momentum_bar", "sustained_build_up": "stat_card"}
-STAT_LABELS = {"shot_speed_kmh": ("shot speed", "km/h"), "distance_to_goal_line_m": ("to goal line", "m"), "pass_difficulty": ("difficulty", None), "ball_travel_m": ("pass length", "m"), "lane_pressure_m": ("lane gap", "m"), "top_speed_kmh": ("top speed", "km/h"), "sprint_distance_m": ("sprint", "m"), "opponents_within_5m": ("opponents <5m", None), "x_from_own_goal_m": ("from own goal", "m"), "control_index": ("control", None), "turnovers": ("turnovers", None), "consecutive_passes": ("passes", None), "players_involved": ("players", None), "momentum_after": ("momentum", None)}
+RATE_LIMITED = {"state": "rate_limited", "message": "AI analysis is rate-limited this hour; instant cues keep coming."}
 
 log = logging.getLogger("replay")
 semaphore = asyncio.Semaphore(int(os.environ.get("ENRICH_CONCURRENCY", "3")))
 background: set[asyncio.Task] = set()
+inflight: dict[str, list[Any]] = {}
 
 
 @lru_cache(maxsize=1)
@@ -132,8 +134,8 @@ def instant_overlay(moment: dict[str, Any], profile: dict[str, Any] | None = Non
     elif kind in ("momentum_shift", "rhythm_change"):
         headline = moment["fact_hint"]
     else:
-        headline = f"{name or club or ''}: {moment['fact_hint']}".strip(": ")
-    stats = [{"label": STAT_LABELS[k][0], "value": v, "unit": STAT_LABELS[k][1]} for k, v in metrics.items() if k in STAT_LABELS and isinstance(v, (int, float)) and not isinstance(v, bool)]
+        headline = cues.insight(moment, name or club)
+    stats = [{"label": cues.STAT_LABELS[k][0], "value": cues.human(v), "unit": cues.STAT_LABELS[k][1]} for k, v in metrics.items() if k in cues.STAT_LABELS and isinstance(v, (int, float)) and not isinstance(v, bool)]
     overlay = {
         "game_id": int(moment["GAME_ID"]),
         "moment_id": moment["moment_id"],
@@ -256,6 +258,25 @@ async def enrich(game_id: int, moment: dict[str, Any], profile: dict[str, Any]) 
         shown = enriched_overlay({"narration": {"overlays": [cached["overlay"]] if cached.get("overlay") else []}}, moment)
         text, language = verified_text(game_id, moment, shown["overlay"], [(cached.get("text"), cached.get("language", "en"))])
         return {**cached, **shown, "text": text, "language": language, "cached": True}
+    return await single_flight(key, lambda: call_agent(path, game_id, moment, profile))
+
+
+async def single_flight(key: str, make: Callable[[], Awaitable[Any]]) -> Any:
+    flight = inflight.get(key)
+    if flight is None:
+        flight = inflight[key] = [asyncio.create_task(make()), 0]
+    flight[1] += 1
+    try:
+        return await asyncio.shield(flight[0])
+    finally:
+        flight[1] -= 1
+        if not flight[1]:
+            if inflight.get(key) is flight:
+                del inflight[key]
+            flight[0].cancel()
+
+
+async def call_agent(path: Path, game_id: int, moment: dict[str, Any], profile: dict[str, Any]) -> dict[str, Any]:
     async with semaphore:
         prompt = f"Live moment. game_id={game_id} moment_id={moment['moment_id']} as_of={int(moment['known_timestep'])} profile_json={json.dumps(profile)}\nAnswer depth: {profile['depth']}. Tone: {profile['tone']}." + (" Lead with tactics." if profile["tactical"] else "")
         reply = await asyncio.to_thread(ask_orchestrator, prompt)
@@ -286,6 +307,22 @@ def sse(event: str, data: Any) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False, default=float)}\n\n"
 
 
+def replay_plan(game_id: int, position: float, profile: dict[str, Any]) -> tuple[int, list[dict[str, Any]], list[cues.OverlayCue]]:
+    steps = tracks()[game_id]["steps"]
+    pending = [m for m in moments(game_id) if m["known_timestep"] >= position and cues.wanted(m["moment_type"], profile)]
+    extra = sorted((cues.weighted(c, profile) for c in cues.derived_cues(game_id, profile, tracks(), running_stats(game_id)) + valuation.money_cues(game_id, profile, steps) if c.timestep >= position and cues.wanted(c.event_type, profile)), key=lambda c: c.timestep)
+    return steps, pending, extra
+
+
+async def cancel_on_close(chunks: AsyncIterator[str], tasks: set[asyncio.Task]) -> AsyncIterator[str]:
+    try:
+        async for chunk in chunks:
+            yield chunk
+    finally:
+        for task in list(tasks):
+            task.cancel()
+
+
 async def stream(request: Request) -> StreamingResponse:
     params = request.query_params
     game_id = int(params.get("game", 0))
@@ -293,13 +330,11 @@ async def stream(request: Request) -> StreamingResponse:
     position = float(params.get("start", 0))
     enrich_on = ENRICH and params.get("enrich", "1") == "1"
     profile = profile_from(params)
-    steps = tracks()[game_id]["steps"]
-    pending = [m for m in moments(game_id) if m["known_timestep"] >= position and cues.wanted(m["moment_type"], profile)]
-    extra = sorted((cues.weighted(c, profile) for c in cues.derived_cues(game_id, profile, tracks(), running_stats(game_id)) + valuation.money_cues(game_id, profile, steps) if c.timestep >= position and cues.wanted(c.event_type, profile)), key=lambda c: c.timestep)
+    tasks: set[asyncio.Task] = set()
 
     async def events():
+        nonlocal position
         queue: asyncio.Queue[tuple[str, Any]] = asyncio.Queue()
-        tasks: set[asyncio.Task] = set()
 
         async def run(moment: dict[str, Any]) -> None:
             await queue.put(("enriching", {"moment_id": moment["moment_id"]}))
@@ -308,9 +343,12 @@ async def stream(request: Request) -> StreamingResponse:
                 await queue.put(("enriched", result) if result["overlay"] else ("enrich_failed", {"moment_id": moment["moment_id"], "error": "validation_failed"}))
             except Exception as error:
                 log.warning("enrichment failed for %s: %s", moment["moment_id"], error)
+                if isinstance(error, BudgetExceeded):
+                    await queue.put(("status", RATE_LIMITED))
                 await queue.put(("enrich_failed", {"moment_id": moment["moment_id"], "error": type(error).__name__}))
 
-        nonlocal position
+        yield sse("status", {"state": "loading", "message": "Loading match data…"})
+        steps, pending, extra = await asyncio.to_thread(replay_plan, game_id, position, profile)
         yield sse("start", {"game_id": game_id, "speed": speed, "profile": profile, "enrich": enrich_on, "steps": steps})
         while position < steps:
             yield sse("frame", frame_at(game_id, int(position)))
@@ -344,7 +382,7 @@ async def stream(request: Request) -> StreamingResponse:
             yield sse(*event)
         yield sse("done", {})
 
-    return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return StreamingResponse(cancel_on_close(events(), tasks), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 async def meta(_: Request) -> JSONResponse:
