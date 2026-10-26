@@ -7,7 +7,7 @@ The schemas in `schemas/` describe the JSON that crosses the boundaries between 
 | File | Title in file | Purpose |
 | --- | --- | --- |
 | `schemas/overlay_cue.schema.json` | `OverlayCue` | One broadcast cue for the overlay: insight, why it matters, confidence, evidence, priority, theme, duration, and supporting metrics and source event ids. Produced by `src/football_analytics/overlay_cues.py`. |
-| `schemas/commentary_response.schema.json` | `CommentaryResponse` | The answer to an Ask the Match request: headline, observed facts, interpretation, optional projection, context trail, quick replies, depth and tone. Produced by `src/football_analytics/commentary.py`. |
+| `schemas/commentary_response.schema.json` | `CommentaryResponse` | The answer to an Ask the Match request: headline, observed facts, interpretation, optional projection, context trail, quick replies, depth and tone. `action: "recap"` gives a whole-match recap (score, scorers, key moments from both halves, team stats) as of the timestep. Produced by `src/football_analytics/commentary.py`. |
 | `schemas/viewer_preferences.schema.json` | `ViewerPreferences` | The viewer's saved choices: persona (derived from interests), language, favourite club and player, per-stat interests (0-100), depth, tone and tactical flag. Used by `commentary.py`. |
 | `schemas/feedback_event.schema.json` | `FeedbackEvent` | A feedback click (for example "Too basic") tied to a game, timestep and response. `apply_feedback` in `commentary.py` turns it into updated preferences and effect notes. |
 
@@ -32,11 +32,11 @@ Nothing in the four examples was hand-edited. All four are generated.
   "event_id": "M0-0001",
   "moment_id": "M0-0001",
   "game_id": 0,
-  "timestep": 68,
-  "match_clock": "02:02",
+  "timestep": 81,
+  "match_clock": "02:26",
   "event_type": "top_speed",
   "primary_insight": "Sami Lindqvist: Top speed 32.8 km/h",
-  "why_it_matters": "Sami Lindqvist reached about 32.8 km/h over a 12.7 m sprint, one of the fastest runs of the match.",
+  "why_it_matters": "Sami Lindqvist reached about 32.8 km/h over a 12.7 m sprint, one of the fastest runs so far.",
   "confidence": 0.8,
   "evidence": "derived",
   "priority": "low",
@@ -71,68 +71,39 @@ Nothing in the four examples was hand-edited. All four are generated.
 ```json
 {
   "schema_version": "1.0",
-  "response_id": "c57800c2edb3",
+  "response_id": "15760ed81110",
   "game_id": 0,
   "timestep": 2700,
   "match_clock": "81:00",
   "action": "explain_more",
   "question": null,
-  "headline": "Goal, Port Saltmere United",
+  "headline": "Momentum swung",
   "observed": [
-    "79:17 Pieter de Waal completed a pass",
-    "79:28 Idrissa Kone carried the ball",
-    "79:48 Idrissa Kone completed a pass",
-    "79:59 Ewan McTavish carried the ball",
-    "80:47 Ewan McTavish shot at about 45.6 km/h"
+    "Momentum swung"
   ],
-  "interpretation": "Port Saltmere United pull one back, 2-1. The game state changes for both sides. Right now it's a control spell.",
+  "interpretation": "Momentum flipped towards Port Saltmere United. Possession and territory over the last spell now favour them. Right now it's a balanced spell.",
   "projection": "If this pattern holds, expect Port Saltmere United to keep pushing higher for the next few minutes.",
   "context_trail": [
     {
       "kind": "moment",
-      "id": "M0-0025",
-      "label": "Goal for team 1; score 2-1"
+      "id": "M0-0023",
+      "label": "Momentum swung"
     },
     {
       "kind": "pattern",
-      "id": "window-18",
-      "label": "control spell"
-    },
-    {
-      "kind": "event",
-      "id": "0-000468",
-      "label": "79:17 Pieter de Waal completed a pass"
-    },
-    {
-      "kind": "event",
-      "id": "0-000469",
-      "label": "79:28 Idrissa Kone carried the ball"
-    },
-    {
-      "kind": "event",
-      "id": "0-000474",
-      "label": "79:48 Idrissa Kone completed a pass"
-    },
-    {
-      "kind": "event",
-      "id": "0-000475",
-      "label": "79:59 Ewan McTavish carried the ball"
-    },
-    {
-      "kind": "event",
-      "id": "0-000483",
-      "label": "80:47 Ewan McTavish shot at about 45.6 km/h"
+      "id": "window-17",
+      "label": "balanced spell"
     }
   ],
   "quick_replies": [
-    "Focus on McTavish",
     "Why did this matter?",
     "Show tactics",
-    "Give me the numbers"
+    "Give me the numbers",
+    "Make it simpler"
   ],
   "depth": "deep",
   "tone": "neutral",
-  "moment_id": "M0-0025",
+  "moment_id": "M0-0023",
   "player_id": null,
   "synthetic": true
 }
@@ -162,7 +133,7 @@ Nothing in the four examples was hand-edited. All four are generated.
   "kind": "too_basic",
   "game_id": 0,
   "timestep": 2700,
-  "response_id": "c57800c2edb3",
+  "response_id": "15760ed81110",
   "player_id": null
 }
 ```

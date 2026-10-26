@@ -32,6 +32,7 @@ specialists = {name: FoundryAgent(project_endpoint=PROJECT_ENDPOINT, agent_name=
 explanations: dict[tuple[int, str], dict[str, Any]] = {}
 
 ProfileArg = Annotated[str, Field(description='JSON fan profile: {"persona": "casual"|"analyst", "language": "en"|"es"|..., "favorite_club_id": 0|1|null, "favorite_player_id": int|null, "metric_focus": str|null}. Use "{}" for defaults.')]
+AsOfArg = Annotated[int | None, Field(description="Timestep the viewer has reached (as_of from the request). Specialists only see data finished by then. null only for a full-match request.")]
 
 
 def _profile(profile_json: str) -> dict[str, Any]:
@@ -62,19 +63,19 @@ def _envelope(kind: str, trace: list[dict[str, Any]], fallbacks: list[str], **pa
 
 
 @tool
-async def live_moment(game_id: int, moment_id: str, profile_json: ProfileArg = "{}") -> str:
+async def live_moment(game_id: int, moment_id: str, profile_json: ProfileArg = "{}", as_of: AsOfArg = None) -> str:
     """Explain a key moment, write the broadcast line and overlay, and personalize it for the fan."""
     trace: list[dict[str, Any]] = []
     fallbacks: list[str] = []
     profile = _profile(profile_json)
-    explanation = explanations.get((game_id, moment_id)) or await _call("match-moment-explainer", {"game_id": game_id, "moment_id": moment_id}, trace)
+    explanation = explanations.get((game_id, moment_id, as_of)) or await _call("match-moment-explainer", {"game_id": game_id, "moment_id": moment_id, "as_of": as_of}, trace)
     if explanation:
-        explanations[(game_id, moment_id)] = explanation
+        explanations[(game_id, moment_id, as_of)] = explanation
     else:
         fallbacks.append("explainer_failed: narrator worked from raw moment data")
     narration, personalized = await asyncio.gather(
-        _call("match-narrator", {"mode": "live_line", "game_id": game_id, "moment_id": moment_id, "explanation": explanation}, trace),
-        _call("fan-personalizer", {"content": explanation, "profile": profile}, trace) if explanation else asyncio.sleep(0, None),
+        _call("match-narrator", {"mode": "live_line", "game_id": game_id, "moment_id": moment_id, "as_of": as_of, "explanation": explanation}, trace),
+        _call("fan-personalizer", {"content": explanation, "profile": profile, "as_of": as_of}, trace) if explanation else asyncio.sleep(0, None),
     )
     if narration is None:
         fallbacks.append("narrator_failed: no overlay")
@@ -84,13 +85,13 @@ async def live_moment(game_id: int, moment_id: str, profile_json: ProfileArg = "
 
 
 @tool
-async def player_focus(game_id: int, player: Annotated[str, Field(description="Roster name or player id")], profile_json: ProfileArg = "{}") -> str:
+async def player_focus(game_id: int, player: Annotated[str, Field(description="Roster name or player id")], profile_json: ProfileArg = "{}", as_of: AsOfArg = None) -> str:
     """Player-focus mode: profile one player's contribution and personalize it for the fan."""
     trace: list[dict[str, Any]] = []
     fallbacks: list[str] = []
     profile = _profile(profile_json)
-    lens = await _call("player-lens", {"game_id": game_id, "player": player}, trace)
-    personalized = await _call("fan-personalizer", {"content": lens, "profile": profile}, trace) if lens else None
+    lens = await _call("player-lens", {"game_id": game_id, "player": player, "as_of": as_of}, trace)
+    personalized = await _call("fan-personalizer", {"content": lens, "profile": profile, "as_of": as_of}, trace) if lens else None
     if lens is None:
         fallbacks.append("player_lens_failed")
     elif personalized is None:
@@ -99,13 +100,13 @@ async def player_focus(game_id: int, player: Annotated[str, Field(description="R
 
 
 @tool
-async def match_recap(game_id: int, profile_json: ProfileArg = "{}") -> str:
-    """Automated match recap with overlays, personalized for the fan."""
+async def match_recap(game_id: int, profile_json: ProfileArg = "{}", as_of: AsOfArg = None) -> str:
+    """Automated recap of the whole match up to as_of (full time at the end) with overlays, personalized for the fan."""
     trace: list[dict[str, Any]] = []
     fallbacks: list[str] = []
     profile = _profile(profile_json)
-    recap = await _call("match-narrator", {"mode": "recap", "game_id": game_id}, trace)
-    personalized = await _call("fan-personalizer", {"content": recap, "profile": profile}, trace) if recap else None
+    recap = await _call("match-narrator", {"mode": "recap", "game_id": game_id, "as_of": as_of}, trace)
+    personalized = await _call("fan-personalizer", {"content": recap, "profile": profile, "as_of": as_of}, trace) if recap else None
     if recap is None:
         fallbacks.append("narrator_failed")
     elif personalized is None:
@@ -123,6 +124,7 @@ Routing:
 - A recap, summary or "how did the match go" -> match_recap.
 - To find game ids, moment ids or player names, use the match_intel tools (list_matches, get_key_moments, get_match_state, get_roster) first.
 Pass the fan profile from the request as profile_json; if none is given use "{}".
+Known-at-this-time rule: when the request gives as_of (or a timestep), pass it as as_of to live_moment, player_focus, match_recap, list_matches and get_key_moments, and as timestep to get_match_state. Never mention anything after it.
 Club ids: 0 = Kestrel Vale FC, 1 = Port Saltmere United. Resolve a favourite player's name to its id with get_roster; never guess ids.
 
 Reply:

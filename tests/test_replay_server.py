@@ -30,11 +30,56 @@ def test_instant_overlay_passes_gate(tmp_path, monkeypatch):
 def test_enriched_overlay_falls_back_to_gated_english(tmp_path, monkeypatch):
     _setup(tmp_path, monkeypatch)
     base = {"game_id": 0, "moment_id": "M0-0001", "start_timestep": 5, "display_seconds": 6, "template": "lower_third", "language": "en", "headline": "Moreau scores, 1-0", "body": "Shot at about 120.5 km/h", "player_id": 9, "stats": []}
-    good = replay.enriched_overlay({"narration": {"overlays": [base]}, "personalized": {"overlay_headline": "Moreau marque, 1-0", "overlay_body": "Tir à environ 120.5 km/h"}, "profile": {"language": "fr"}})
+    moment = replay.moments(0)[0]
+    good = replay.enriched_overlay({"narration": {"overlays": [base]}, "personalized": {"overlay_headline": "Moreau marque, 1-0", "overlay_body": "Tir à environ 120.5 km/h"}, "profile": {"language": "fr"}}, moment)
     assert good["overlay"]["language"] == "fr" and good["validation"]["valid"]
-    bad = replay.enriched_overlay({"narration": {"overlays": [base]}, "personalized": {"overlay_headline": "Moreau marque à 150 km/h"}, "profile": {"language": "fr"}})
+    bad = replay.enriched_overlay({"narration": {"overlays": [base]}, "personalized": {"overlay_headline": "Moreau marque à 150 km/h"}, "profile": {"language": "fr"}}, moment)
     assert bad["overlay"] == base
-    assert replay.enriched_overlay({})["overlay"] is None
+    assert replay.enriched_overlay({}, moment)["overlay"] is None
+    assert replay.enriched_overlay({"narration": {"overlays": [{**base, "moment_id": "M0-0002"}]}}, moment)["overlay"] is None
+
+
+def test_enriched_text_is_the_validated_string(tmp_path, monkeypatch):
+    _setup(tmp_path, monkeypatch)
+    moment = replay.moments(0)[0]
+    overlay = replay.instant_overlay(moment)["overlay"]
+    invented = ("A 99 km/h penalty sealed it.", "en")
+    assert replay.verified_text(0, moment, overlay, [invented, ("Moreau marque, environ 120.5 km/h", "fr")]) == ("Moreau marque, environ 120.5 km/h", "fr")
+    assert replay.verified_text(0, moment, overlay, [invented]) == (overlay["body"], "en")
+
+
+def test_ask_returns_only_the_validated_answer(tmp_path, monkeypatch):
+    from starlette.testclient import TestClient
+
+    _setup(tmp_path, monkeypatch)
+    prompts = []
+    monkeypatch.setattr(replay, "ask_orchestrator", lambda prompt: prompts.append(prompt) or {"text": "Moreau scored at about 120.5 km/h, 1-0.\nEvidence: M0-0001", "envelopes": []})
+    client = TestClient(replay.app)
+    data = client.post("/api/ask", json={"game": 0, "timestep": 20, "question": "What happened?"}).json()
+    assert (data["answer"], data["evidence"], data["verified"]) == ("Moreau scored at about 120.5 km/h, 1-0.", ["M0-0001"], True)
+    assert not client.post("/api/ask", json={"game": 0, "timestep": 11, "question": "What happened?"}).json()["verified"]
+    client.post("/api/ask", json={"game": 0, "timestep": 3000, "question": "Give me the match recap.", "action": "recap"})
+    assert "call match_recap with game_id=0 and as_of=3000" in prompts[-1] and "as_of=20" in prompts[0]
+
+
+def test_stream_publishes_only_validated_cues(tmp_path, monkeypatch):
+    import numpy as np
+    from starlette.testclient import TestClient
+
+    from football_analytics import overlay_cues as cues
+
+    _setup(tmp_path, monkeypatch)
+    steps = 30
+    monkeypatch.setattr(replay, "tracks", lambda: {0: {"ids": [-1], "xy": np.zeros((steps, 1, 2)), "score": np.zeros((steps, 2), dtype=int), "steps": steps}})
+    monkeypatch.setattr(replay, "running_stats", lambda game_id: {"possession": np.full((steps, 2), 50.0)})
+    base = {"game_id": 0, "timestep": 20, "match_clock": "00:36", "event_type": "interception", "why_it_matters": "Cut out early.", "confidence": 0.7, "evidence": "observed", "priority": "high", "duration_ms": 4000, "theme": "defensive_masterclass", "source_event_ids": ["0-000001"]}
+    derived = [cues.OverlayCue(event_id="good", primary_insight="Moreau: interception", **base), cues.OverlayCue(event_id="invented", primary_insight="Moreau: penalty won", **base), cues.OverlayCue(event_id="uncited", primary_insight="Full time", **{**base, "source_event_ids": []})]
+    monkeypatch.setattr(cues, "derived_cues", lambda *args: derived)
+    monkeypatch.setattr(replay.valuation, "money_cues", lambda *args: [])
+    body = TestClient(replay.app).get("/api/stream?game=0&speed=120&enrich=0").text
+    events = [(block.split("\n")[0][7:], json.loads(block.split("\n")[1][6:])) for block in body.strip().split("\n\n")]
+    assert [data["cue"]["event_id"] for kind, data in events if kind == "cue"] == ["good"]
+    assert [(data["cue"]["timestep"], data["validation"]["valid"]) for kind, data in events if kind == "moment"] == [(12, True)]
 
 
 def test_agent_budget_blocks_after_hourly_limit(monkeypatch):

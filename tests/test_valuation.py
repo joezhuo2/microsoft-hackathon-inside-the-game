@@ -57,7 +57,8 @@ def test_player_value_counts_only_actions_so_far(tmp_path, monkeypatch):
 
 def test_keeper_credited_for_shot_faced(tmp_path, monkeypatch):
     _setup(tmp_path, monkeypatch)
-    keeper = v.player_value(0, 0, 100, STEPS)
+    assert v.player_value(0, 0, 100, STEPS).breakdown == []
+    keeper = v.player_value(0, 0, 50 + v.SHOT_TO_GOAL, STEPS)
     assert [line.action for line in keeper.breakdown] == ["shot_faced"]
     assert v.player_value(0, 100, 100, STEPS).breakdown == []
 

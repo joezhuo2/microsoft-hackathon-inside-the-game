@@ -9,7 +9,7 @@ from .config import AnalyticsConfig, DEFAULT_CONFIG_PATH
 from .data_loader import load_tracking_data
 from .event_detection import detect_events
 from .export import export_outputs
-from .match_intelligence import detect_key_moments, enrich_events, load_roster, match_clock, match_rhythm, player_match_intel, player_speed_tags
+from .match_intelligence import detect_key_moments, enrich_events, known_timestep, load_roster, match_clock, match_rhythm, player_match_intel, player_speed_tags
 from .player_stats import aggregate_player_stats
 from .possession import build_possession_chains, infer_possession
 from .preprocessing import validate_tracking_frame
@@ -49,7 +49,7 @@ def run_analysis(input_path: str, output_dir: str = "output", config_path: str |
     tags = player_speed_tags(features, config.seconds_per_timestep)
     rhythm = match_rhythm(possession, events, config.attacking_directions)
     moments = detect_key_moments(features, events, rhythm, tags, config.attacking_directions)
-    moments.insert(4, "match_clock", moments["start_timestep"].map(lambda t: match_clock(t, config.timesteps_per_match, config.match_minutes)))
+    moments.insert(4, "match_clock", known_timestep(moments).map(lambda t: match_clock(t, config.timesteps_per_match, config.match_minutes)))
     intel = player_match_intel(events, features, tags, config.seconds_per_timestep, roster)
     paths = export_outputs(possession, events, chains, players, teams, quality, output_dir, {"key_moments": moments, "match_rhythm": rhythm, "player_tags": tags, "player_match_intel": intel})
     return paths

@@ -34,7 +34,7 @@ const STUDIO_MAX = 60;
 const MAX_CHIPS = 2;
 const PREF_KEY = "match-prefs";
 const DEPTH_PRIORITIES = { headlines: ["high"], balanced: ["high", "medium"], deep: ["high", "medium", "low"] };
-const ACTION_QUESTIONS = { explain_more: "Explain more", show_tactics: "Show tactics", simpler: "Make it simpler", numbers: "Give me the numbers", why: "Why did this matter?" };
+const ACTION_QUESTIONS = { explain_more: "Explain more", show_tactics: "Show tactics", simpler: "Make it simpler", numbers: "Give me the numbers", why: "Why did this matter?", recap: "Give me the match recap." };
 const REPLY_ACTIONS = Object.fromEntries(Object.entries(ACTION_QUESTIONS).map(([action, text]) => [text, action]));
 const FEEDBACK = [["too_basic", "Too basic"], ["too_technical", "Too technical"], ["more_tactical", "More tactical"], ["more_emotional", "More emotional"], ["follow_player", "Follow this player"]];
 let savedPrefs = {};
@@ -473,7 +473,7 @@ function connect(fromStart = false) {
   source.addEventListener("end", (e) => {
     const f = JSON.parse(e.data);
     applyFrame(f);
-    sequence([[`Full time ${f.score[0]}–${f.score[1]}`, 3600], ["Match recap", 2000]]).then(() => askMatch("question", "Give me the match recap so far.", null, false));
+    sequence([[`Full time ${f.score[0]}–${f.score[1]}`, 3600], ["Match recap", 2000]]).then(() => askMatch("recap"));
     status("Full time. Finishing analysis…");
   });
   source.addEventListener("done", () => {
@@ -569,18 +569,19 @@ function draw() {
   requestAnimationFrame(draw);
 }
 
-async function ask(question) {
+async function ask(question, action) {
   $("answerWrap").classList.add("open");
   $("answer").replaceChildren(el("span", { class: "tag ghost dots" }, "agents working"));
   try {
-    const response = await fetch(`${API}/api/ask`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game: $("game").value, timestep: state.lastT, question, ...profile(), depth: state.prefs.depth, tone: state.prefs.tone, tactical: state.prefs.tactical }) });
+    const response = await fetch(`${API}/api/ask`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ game: $("game").value, timestep: state.lastT, question, action, ...profile(), depth: state.prefs.depth, tone: state.prefs.tone, tactical: state.prefs.tactical }) });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || response.status);
     const text = el("div", { dir: "auto" });
     $("answer").replaceChildren(...[
       el("span", { class: data.verified ? "tag ok" : "tag warn" }, data.verified ? "verified by gate" : "not verified by gate"),
       data.fallbacks?.length ? el("span", { class: "tag warn", title: data.fallbacks.join("; ") }, "partial") : null,
-      text].filter(Boolean));
+      text,
+      data.evidence?.length ? el("span", { class: "tag ghost" }, `Evidence: ${data.evidence.join(", ")}`) : null].filter(Boolean));
     reveal(text, data.answer);
   } catch (error) {
     $("answer").textContent = `Could not reach the agents (${error.message}).`;
@@ -797,7 +798,7 @@ async function askMatch(action, question = null, playerId = null, withAgent = tr
     if (token === state.askToken) $("commentary").textContent = `Could not load commentary (${error.message}).`;
     return;
   }
-  if (agent) ask(agentQuestion(action, question, playerId));
+  if (agent) ask(agentQuestion(action, question, playerId), action);
 }
 
 async function sendFeedback(kind) {
@@ -934,7 +935,7 @@ async function init() {
   };
   setInterval(maybeRefreshValue, 1000);
   $("focusBtn").onclick = () => askMatch("focus_player", null, Number($("player").value) || null);
-  $("recapBtn").onclick = () => askMatch("question", "Give me the match recap so far.");
+  $("recapBtn").onclick = () => askMatch("recap");
   $("askChips").onclick = (e) => {
     if (e.target.closest("[data-value]")) return setValue(true);
     const action = e.target.closest("[data-action]")?.dataset.action;

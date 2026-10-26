@@ -6,6 +6,7 @@ from typing import Any, Literal
 import numpy as np
 import pandas as pd
 from pydantic import BaseModel, Field
+from pydantic.json_schema import SkipJsonSchema
 
 from . import mcp_server as intel
 from .match_intelligence import match_clock
@@ -69,6 +70,7 @@ class OverlayCue(BaseModel):
     supporting_metrics: list[Metric] = Field(default_factory=list, max_length=4)
     source_event_ids: list[str] = Field(default_factory=list)
     synthetic: Literal[True] = True
+    facts: SkipJsonSchema[dict[str, Any]] = Field(default_factory=dict, exclude=True)
 
 
 def interests(raw: Any = None) -> dict[str, int]:
@@ -137,7 +139,7 @@ def why_it_matters(kind: str, metrics: dict[str, Any], team: Any, name: str | No
     if kind == "sustained_build_up":
         return f"{metrics.get('consecutive_passes')} straight completed passes across {metrics.get('players_involved')} players: {club} are dictating the tempo."
     if kind == "press_escape":
-        return f"{who} escaped {metrics.get('opponents_within_5m')} opponents within 5 m, turning pressure into space."
+        return f"{who} escaped {metrics.get('opponents_within_5m')} close opponents, turning pressure into space."
     if kind == "high_turnover":
         return f"Ball won {metrics.get('x_from_own_goal_m')} m from their own goal, so {club} attack an unset defence."
     if kind == "momentum_shift":
@@ -151,7 +153,7 @@ def why_it_matters(kind: str, metrics: dict[str, Any], team: Any, name: str | No
             return "The game settled into control: one side is building patiently and holding territory."
         return "The tempo has evened out; neither side is controlling play."
     if kind == "top_speed":
-        return f"{who} reached about {metrics.get('top_speed_kmh')} km/h over a {metrics.get('sprint_distance_m')} m sprint, one of the fastest runs of the match."
+        return f"{who} reached about {metrics.get('top_speed_kmh')} km/h over a {metrics.get('sprint_distance_m')} m sprint, one of the fastest runs so far."
     return "A notable moment in the match flow."
 
 
@@ -194,8 +196,8 @@ def moment_cue(moment: dict[str, Any], stats: list[dict[str, Any]], profile: dic
         event_id=event_ids[-1] if event_ids else moment["moment_id"],
         moment_id=moment["moment_id"],
         game_id=game_id,
-        timestep=int(moment["start_timestep"]),
-        match_clock=moment["match_clock"],
+        timestep=int(moment["known_timestep"]),
+        match_clock=match_clock(moment["known_timestep"]),
         event_type=kind,
         primary_insight=f"Goal, {_club(team)}" if kind == "goal" else (f"{name}: {moment['fact_hint']}" if name else moment["fact_hint"]),
         why_it_matters=why_it_matters(kind, metrics, team, name)[:220],
@@ -239,7 +241,7 @@ def derived_cues(game_id: int, profile: dict[str, Any], tracks: dict[int, dict[s
             confidence=CONFIDENCE.get(str(event["confidence_level"]), 0.5), evidence="observed", priority="medium" if profile.get("favorite_player_id") == player_id else "low",
             duration_ms=DURATION_MS["low"], theme="defensive_masterclass", audience_mode=audience, team_id=team,
             player_focus=PlayerFocus(player_id=player_id, name=name, involvement="interception") if player_id is not None else None,
-            supporting_metrics=[Metric(label="from own goal", value=depth, unit="m")], source_event_ids=[event["event_id"]],
+            supporting_metrics=[Metric(label="from own goal", value=depth, unit="m")], source_event_ids=[event["event_id"]], facts={"from_own_goal_m": depth},
         ))
     favourite = profile.get("favorite_player_id")
     if favourite is not None:
@@ -254,7 +256,7 @@ def derived_cues(game_id: int, profile: dict[str, Any], tracks: dict[int, dict[s
                 why_it_matters=f"{name} has now covered {distance} m, a sign of work rate off the ball.",
                 confidence=MEASURED, evidence="derived", priority="medium", duration_ms=DURATION_MS["medium"], theme="milestone", audience_mode=audience,
                 team_id=int(tag["TEAM_ID"]), player_focus=PlayerFocus(player_id=favourite, name=name, involvement="distance milestone"),
-                supporting_metrics=[Metric(label="distance", value=distance, unit="m")],
+                supporting_metrics=[Metric(label="distance", value=distance, unit="m")], facts={"distance_m": distance},
             ))
     steps = tracks[game_id]["steps"]
     score = tracks[game_id]["score"]
@@ -266,6 +268,7 @@ def derived_cues(game_id: int, profile: dict[str, Any], tracks: dict[int, dict[s
             why_it_matters=f"Possession {round(possession[0])}% to {round(possession[1])}%, shots {int(shots[0])} to {int(shots[1])}.",
             confidence=MEASURED, evidence="derived", priority="high", duration_ms=8000, theme="recap_cue", audience_mode=audience,
             supporting_metrics=[Metric(label="possession", value=round(possession[0]), unit="%"), Metric(label="shots", value=f"{int(shots[0])}–{int(shots[1])}")],
+            facts={"possession": [float(possession[0]), float(possession[1])], "shots": [int(shots[0]), int(shots[1])], "score": [int(score[t][0]), int(score[t][1])]},
         ))
     return sorted(cues, key=lambda cue: cue.timestep)
 
