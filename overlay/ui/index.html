@@ -28,7 +28,7 @@
       <section id="panel" class="frame" data-hit>
         <div class="grid">
           <label>Game<select id="game"></select></label>
-          <label>Speed<select id="speed"><option value="10">1×</option><option value="20">2×</option><option value="30" selected>3×</option><option value="60">6×</option></select></label>
+          <label>Speed<select id="speed"><option value="10" selected>1×</option><option value="20">2×</option><option value="30">3×</option><option value="60">6×</option></select></label>
           <label>Language<select id="language"><option value="en">English</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="pt">Português</option><option value="it">Italiano</option><option value="ar">العربية (AI text only)</option><option value="ja">日本語 (AI text only)</option><option value="zh">中文 (AI text only)</option></select></label>
           <label>Club<select id="club"><option value="">Neutral</option></select></label>
           <label>Player<select id="player"><option value="">None</option></select></label>
@@ -114,6 +114,12 @@
   </section>
 
   <footer id="tiles"></footer>
+
+  <nav id="timeline" class="frame" data-hit aria-label="Match timeline">
+    <span id="tlClock">00:00</span>
+    <div class="tl-track"><div id="tlFill"></div><div id="tlMarks"></div></div>
+    <div class="tl-legend"><span><i class="dm turning_point"></i><b data-tl="turning_point">Turning point</b></span><span><i class="dm player"></i><b data-tl="player">Your player</b></span><span><i class="dm supporting"></i><b data-tl="supporting">Supporting</b></span></div>
+  </nav>
 
   <div id="onboard" class="frame" data-hit hidden role="dialog" aria-modal="true" aria-labelledby="onboardTitle"><h2 id="onboardTitle">What do you care about?</h2><p>Set each dial. You can change them any time in Match centre.</p><div class="dials" id="onboardDials"></div><button type="button" id="onboardStart">Start</button></div>
 

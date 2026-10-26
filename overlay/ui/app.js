@@ -37,13 +37,13 @@ const PREF_KEY = "match-prefs";
 const DEPTH_PRIORITIES = { headlines: ["high"], balanced: ["high", "medium"], deep: ["high", "medium", "low"] };
 const ACTION_QUESTIONS = { explain_more: "Explain more", show_tactics: "Show tactics", simpler: "Make it simpler", numbers: "Give me the numbers", why: "Why did this matter?", recap: "Give me the match recap." };
 const FEEDBACK = [["too_basic", "Too basic"], ["too_technical", "Too technical"], ["more_tactical", "More tactical"], ["more_emotional", "More emotional"], ["follow_player", "Follow this player"]];
-const I18N_KEYS = ["Kick off", "Half time", "Second half", "Full time", "Match recap", "Goal threat", "Momentum shift", "Player spotlight", "Tactical reset", "Money move", "Why did this matter?", "Show tactics", "Give me the numbers", "Make it simpler", "Explain more", "Focus on", "Too basic", "Too technical", "More tactical", "More emotional", "Follow this player", "Observed", "Interpretation", "Projection"];
+const I18N_KEYS = ["Kick off", "Half time", "Second half", "Full time", "Match recap", "Goal threat", "Momentum shift", "Player spotlight", "Tactical reset", "Money move", "Why did this matter?", "Show tactics", "Give me the numbers", "Make it simpler", "Explain more", "Focus on", "Too basic", "Too technical", "More tactical", "More emotional", "Follow this player", "Observed", "Interpretation", "Projection", "Turning point", "Your player", "Supporting"];
 const I18N = Object.fromEntries(Object.entries({
-  es: ["Saque inicial", "Descanso", "Segunda parte", "Final", "Resumen del partido", "Ocasión de gol", "Cambio de impulso", "Jugador destacado", "Reajuste táctico", "Jugada de valor", "¿Por qué importó?", "Ver táctica", "Dame los números", "Más sencillo", "Explica más", "Foco en", "Demasiado básico", "Demasiado técnico", "Más táctico", "Más emoción", "Seguir a este jugador", "Observado", "Interpretación", "Proyección"],
-  fr: ["Coup d'envoi", "Mi-temps", "Seconde période", "Fin du match", "Résumé du match", "Occasion de but", "Bascule d'élan", "Joueur à la une", "Ajustement tactique", "Coup de valeur", "Pourquoi c'est important ?", "Voir la tactique", "Donne-moi les chiffres", "Plus simple", "Explique davantage", "Focus sur", "Trop basique", "Trop technique", "Plus tactique", "Plus d'émotion", "Suivre ce joueur", "Observé", "Interprétation", "Projection"],
-  de: ["Anstoß", "Halbzeit", "Zweite Halbzeit", "Abpfiff", "Spielbericht", "Torgefahr", "Momentum-Wechsel", "Spieler im Fokus", "Taktischer Reset", "Wert-Moment", "Warum war das wichtig?", "Taktik zeigen", "Zeig mir die Zahlen", "Einfacher", "Mehr erklären", "Fokus auf", "Zu einfach", "Zu technisch", "Taktischer", "Emotionaler", "Diesem Spieler folgen", "Beobachtet", "Einordnung", "Prognose"],
-  pt: ["Pontapé inicial", "Intervalo", "Segundo tempo", "Fim de jogo", "Resumo da partida", "Chance de gol", "Virada de momento", "Jogador em destaque", "Ajuste tático", "Lance de valor", "Por que isso importou?", "Mostrar tática", "Quero os números", "Mais simples", "Explique mais", "Foco em", "Básico demais", "Técnico demais", "Mais tático", "Mais emoção", "Seguir este jogador", "Observado", "Interpretação", "Projeção"],
-  it: ["Calcio d'inizio", "Intervallo", "Secondo tempo", "Fine partita", "Riepilogo", "Occasione da gol", "Cambio d'inerzia", "Giocatore in evidenza", "Ritocco tattico", "Mossa di valore", "Perché è stato importante?", "Mostra la tattica", "Dammi i numeri", "Più semplice", "Spiega di più", "Focus su", "Troppo semplice", "Troppo tecnico", "Più tattico", "Più emozione", "Segui questo giocatore", "Osservato", "Interpretazione", "Proiezione"],
+  es: ["Saque inicial", "Descanso", "Segunda parte", "Final", "Resumen del partido", "Ocasión de gol", "Cambio de impulso", "Jugador destacado", "Reajuste táctico", "Jugada de valor", "¿Por qué importó?", "Ver táctica", "Dame los números", "Más sencillo", "Explica más", "Foco en", "Demasiado básico", "Demasiado técnico", "Más táctico", "Más emoción", "Seguir a este jugador", "Observado", "Interpretación", "Proyección", "Momento clave", "Tu jugador", "Apoyo"],
+  fr: ["Coup d'envoi", "Mi-temps", "Seconde période", "Fin du match", "Résumé du match", "Occasion de but", "Bascule d'élan", "Joueur à la une", "Ajustement tactique", "Coup de valeur", "Pourquoi c'est important ?", "Voir la tactique", "Donne-moi les chiffres", "Plus simple", "Explique davantage", "Focus sur", "Trop basique", "Trop technique", "Plus tactique", "Plus d'émotion", "Suivre ce joueur", "Observé", "Interprétation", "Projection", "Tournant du match", "Ton joueur", "Action d’appui"],
+  de: ["Anstoß", "Halbzeit", "Zweite Halbzeit", "Abpfiff", "Spielbericht", "Torgefahr", "Momentum-Wechsel", "Spieler im Fokus", "Taktischer Reset", "Wert-Moment", "Warum war das wichtig?", "Taktik zeigen", "Zeig mir die Zahlen", "Einfacher", "Mehr erklären", "Fokus auf", "Zu einfach", "Zu technisch", "Taktischer", "Emotionaler", "Diesem Spieler folgen", "Beobachtet", "Einordnung", "Prognose", "Wendepunkt", "Dein Spieler", "Nebenszene"],
+  pt: ["Pontapé inicial", "Intervalo", "Segundo tempo", "Fim de jogo", "Resumo da partida", "Chance de gol", "Virada de momento", "Jogador em destaque", "Ajuste tático", "Lance de valor", "Por que isso importou?", "Mostrar tática", "Quero os números", "Mais simples", "Explique mais", "Foco em", "Básico demais", "Técnico demais", "Mais tático", "Mais emoção", "Seguir este jogador", "Observado", "Interpretação", "Projeção", "Momento decisivo", "Seu jogador", "Lance de apoio"],
+  it: ["Calcio d'inizio", "Intervallo", "Secondo tempo", "Fine partita", "Riepilogo", "Occasione da gol", "Cambio d'inerzia", "Giocatore in evidenza", "Ritocco tattico", "Mossa di valore", "Perché è stato importante?", "Mostra la tattica", "Dammi i numeri", "Più semplice", "Spiega di più", "Focus su", "Troppo semplice", "Troppo tecnico", "Più tattico", "Più emozione", "Segui questo giocatore", "Osservato", "Interpretazione", "Proiezione", "Svolta", "Il tuo giocatore", "Azione di supporto"],
 }).map(([lang, words]) => [lang, Object.fromEntries(I18N_KEYS.map((key, i) => [key, words[i]]))]));
 const tr = (text) => {
   const words = I18N[$("language").value] || {};
@@ -51,7 +51,7 @@ const tr = (text) => {
 };
 let savedPrefs = {};
 try { savedPrefs = JSON.parse(localStorage.getItem(PREF_KEY)) || {}; } catch { savedPrefs = {}; }
-const state = { studio: { seq: 0, items: [], onAir: true, minConfidence: 0, autoAir: { high: true, medium: true, low: false } }, prefs: { depth: "balanced", tone: "neutral", tactical: false, ...savedPrefs }, askToken: 0, last: null, roster: null, source: null, frames: [], lastT: 0, paused: false, alertTimer: null, alertToken: 0, alertQueue: [], alertBusy: false, recent: [], entries: new Map(), moments: new Map(), stats: {}, score: [0, 0] };
+const state = { studio: { seq: 0, items: [], onAir: true, minConfidence: 0, autoAir: { high: true, medium: true, low: false } }, prefs: { depth: "balanced", tone: "neutral", tactical: false, ...savedPrefs }, askToken: 0, last: null, roster: null, source: null, frames: [], lastT: 0, paused: false, alertTimer: null, alertToken: 0, alertQueue: [], alertBusy: false, recent: [], entries: new Map(), moments: new Map(), markers: new Map(), markerTypes: null, markerFavourite: null, steps: 0, stats: {}, score: [0, 0] };
 
 document.body.classList.add(tauri ? "tauri" : "web");
 
@@ -447,6 +447,37 @@ function clockMinutes(clock) {
   return Number.parseInt(clock, 10);
 }
 
+const MARKER_LABELS = { turning_point: "Turning point", player: "Your player", supporting: "Supporting" };
+const MAX_SUPPORTING = 12;
+const LEAD_IN = 100;
+const timelineAt = (t) => `${state.steps > 1 ? Math.min(100, (t / (state.steps - 1)) * 100) : 0}%`;
+
+function renderTimeline() {
+  document.querySelectorAll("[data-tl]").forEach((node) => { node.textContent = tr(MARKER_LABELS[node.dataset.tl]); });
+  const fav = state.markerFavourite;
+  const marks = [...state.markers.values()]
+    .filter((m) => !state.markerTypes || state.markerTypes.includes(m.kind))
+    .map((m) => ({ ...m, category: m.category === "turning_point" ? m.category : fav != null && m.player_id === fav ? "player" : "supporting" }))
+    .sort((a, b) => a.t - b.t);
+  const focused = document.activeElement?.closest?.("#tlMarks [data-id]")?.dataset.id;
+  const supporting = marks.filter((m) => m.category === "supporting").slice(-MAX_SUPPORTING);
+  $("tlMarks").replaceChildren(...marks.filter((m) => m.category !== "supporting" || supporting.includes(m)).map((m) => {
+    const text = `${tr(MARKER_LABELS[m.category])}, ${m.clock}, ${m.headline}`;
+    const button = el("button", { type: "button", class: `dm ${m.category}`, "data-id": m.id, "aria-label": text, title: text });
+    button.style.left = timelineAt(m.t);
+    button.onclick = () => rewind(m.t);
+    return button;
+  }));
+  if (focused) $("tlMarks").querySelector(`[data-id="${focused}"]`)?.focus();
+}
+
+function rewind(t) {
+  state.paused = false;
+  $("pause").textContent = "Pause";
+  state.lastT = Math.max(0, t - LEAD_IN);
+  connect();
+}
+
 function applyFrame(f) {
   state.frames = [state.frames.at(-1) || f, { ...f, at: performance.now() }];
   state.lastT = f.t;
@@ -461,6 +492,8 @@ function applyFrame(f) {
   });
   state.score = f.score;
   $("clock").textContent = f.clock;
+  $("tlClock").textContent = f.clock;
+  $("tlFill").style.width = timelineAt(f.t);
   if (!state.halfDone && clockMinutes(f.clock) >= 45) {
     state.halfDone = true;
     sequence([[`Half time ${f.score[0]}–${f.score[1]}`, 3000], ["Second half", 2200]]);
@@ -487,6 +520,10 @@ function connect(fromStart = false) {
   clearTimeout(splashTimer);
   $("splash").classList.remove("show");
   state.splashBusy = false;
+  if (fromStart) {
+    state.markers.clear();
+    renderTimeline();
+  }
   if (state.paused) {
     state.resumeFromStart ||= fromStart;
     return status("Paused · changes apply on resume");
@@ -512,6 +549,8 @@ function connect(fromStart = false) {
   source.addEventListener("start", (e) => {
     const s = JSON.parse(e.data);
     status(`Game ${s.game_id} live · ${s.enrich ? "AI analysis on" : "instant overlays only"}`);
+    Object.assign(state, { steps: s.steps, markerTypes: s.marker_types, markerFavourite: s.profile.favorite_player_id });
+    renderTimeline();
     if (fromStart) {
       state.halfDone = false;
       state.studio.items = [];
@@ -523,6 +562,10 @@ function connect(fromStart = false) {
   source.addEventListener("moment", (e) => {
     const data = JSON.parse(e.data);
     state.moments.set(data.overlay.moment_id, data);
+    if (data.marker) {
+      state.markers.set(data.overlay.moment_id, { ...data.marker, id: data.overlay.moment_id, kind: data.moment_type, player_id: data.overlay.player_id, headline: data.cue?.primary_insight || data.overlay.headline });
+      renderTimeline();
+    }
     routeCue(data);
   });
   source.addEventListener("cue", (e) => routeCue(JSON.parse(e.data)));

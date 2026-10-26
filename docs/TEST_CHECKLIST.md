@@ -16,7 +16,7 @@ Run from the repo root:
 | `tests/test_mcp_server.py` | `validate_claims` accepts cited facts and rejects uncited ones; `validate_overlay` checks schema and that numbers are backed by the moment. |
 | `tests/test_overlay_cues.py` | The overlay cue schema file matches its model; a goal cue is themed, traceable to source events and gated; rhythm changes map to control, and a favourite player gets a priority bump. |
 | `tests/test_pipeline.py` | Tracking CSV loading; coordinate normalisation keeps source values and does not clip; ball and player detection in preprocessing; both supplied CSVs load all six games; stationary entities have zero speed; diagnostics do not bridge gaps or resets; possession and event creation; the tracking-only pass detector ignores labels; an uncontrolled distant ball stays unknown; nearest-player distances split by team; pass quality, ball speed and pass difficulty; a score change becomes a goal moment with its clock; sprint tags need sustained speed. |
-| `tests/test_replay_server.py` | An instant overlay passes the gate; an enriched overlay falls back to gated English when agents fail; the agent call budget blocks after the hourly limit. |
+| `tests/test_replay_server.py` | An instant overlay passes the gate; an enriched overlay falls back to gated English when agents fail; the agent call budget blocks after the hourly limit; timeline marker categories follow turning point > your player > supporting; a stream started before a moment replays it, one started after does not, and `start` lists only marker types the dials keep. |
 | `tests/test_synthetic_extension.py` | Generated synthetic rows are flagged synthetic; event ids are unique and prefixed; player ids exist in the roster; the substitution window is respected; generation is deterministic. This file covers the synthetic-data extension in `scripts/extend_synthetic.py`. |
 
 ## B. Manual browser checks
@@ -40,6 +40,13 @@ Start the replay server and open the overlay in a browser (`/` for the overlay, 
 - [ ] While paused, changing game, speed, dials or Restart keeps the replay paused; Resume applies the changes.
 - [ ] Changing game mid-alert clears the alert, splash, pending answer and value request from the old game.
 - [ ] Tab does not reach controls inside closed panels or the dock hidden with Ctrl+Shift+O.
+- [ ] The speed select defaults to 1× on a fresh load.
+- [ ] The timeline bar fills as the match plays and its clock matches the scorebar.
+- [ ] Diamonds appear only after their moment has shown: gold for goals and momentum shifts, cyan for the picked Player (including Tomas Ellery, id 0), hollow grey for others, at most 12 grey.
+- [ ] Clicking a diamond (also while paused) rewinds about 10 seconds, resumes, and replays that moment's alert and AI analysis entry; later diamonds stay.
+- [ ] Tab reaches each diamond; its name reads type, clock and headline; Enter rewinds.
+- [ ] Changing game or Restart clears the diamonds; Pause/Resume and a dial change keep them (types dropped by the dials disappear).
+- [ ] The legend labels translate when Language changes to es, fr, de, pt or it.
 - [ ] Recent cues under the AI analysis feed lists the last 10 aired cues, newest first, and can be collapsed.
 - [ ] With player Tomas Ellery (id 0) selected, Player focus and Focus on player answer about Ellery; a Focus on [name] reply answers about that player.
 - [ ] The Kick off splash appears when the replay starts.
@@ -56,6 +63,6 @@ Start the replay server and open the overlay in a browser (`/` for the overlay, 
 - [ ] The producer view shows Air and Drop buttons on queued cues, and each changes the cue state (Air becomes On air, Drop becomes Dropped).
 - [ ] With the system setting for reduced motion on, cue alerts, splashes and feed items do not slide, blur or pulse.
 - [ ] In the Tauri build, clicks on empty desktop areas outside the overlay controls reach the desktop.
-- [ ] In the Tauri build, clicks on the Match centre, Ask the match, producer queue, Recent cues and onboarding controls work.
+- [ ] In the Tauri build, clicks on the Match centre, Ask the match, producer queue, Recent cues, timeline diamonds and onboarding controls work.
 - [ ] In the Tauri build, Ctrl+Shift+O hides the dock and makes the whole overlay click-through.
 - [ ] The hosted demo loads at https://ca-match-replay-cons.blackocean-5801654c.norwayeast.azurecontainerapps.io
