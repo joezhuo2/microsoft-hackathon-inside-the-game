@@ -42,6 +42,7 @@
           <button id="recapBtn">Recap</button>
         </div>
         <div class="foot"><span id="status">Connecting…</span><span class="hint tauri-only">Ctrl+Shift+O hides controls</span><button id="close" class="tauri-only" aria-label="Close overlay">Close</button></div>
+        <p class="disclosure">Clock: 3000 timesteps scaled to 90 minutes, not real match time.<br>Speeds and distances: inferred from position changes at an assumed 0.1 s per timestep.</p>
       </section>
     </div>
     <button id="askBtn" class="tile" data-hit aria-expanded="false" aria-controls="askPanel">
@@ -75,7 +76,7 @@
         <div id="valueCard"></div>
         <div class="actions"><button type="button" id="valueBoardBtn" aria-expanded="false" aria-controls="valueBoard">Value table</button></div>
         <div id="valueBoard" hidden></div>
-        <p class="note">Synthetic wages and model values for a fictional league.</p>
+        <p class="note">Illustrative only: fixed awards per action and synthetic wages for a fictional league. Value for money compares a player's share of team value with their share of the wage bill.</p>
       </section>
     </div>
   </aside>

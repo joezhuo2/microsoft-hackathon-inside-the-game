@@ -168,6 +168,7 @@ input[type="checkbox"] { accent-color: #fff; }
 #answer .tag { margin: 0 6px 8px 0; }
 .foot { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 11px; color: var(--muted); }
 .foot .hint { margin-left: auto; }
+.disclosure { margin: 6px 0 0; font-size: 11px; color: var(--muted); }
 #status.error { color: #fff; }
 
 /* player value */

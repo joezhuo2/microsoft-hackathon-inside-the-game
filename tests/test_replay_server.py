@@ -1,4 +1,7 @@
+import asyncio
 import json
+import re
+import time
 
 import pandas as pd
 
@@ -24,7 +27,7 @@ def test_instant_overlay_passes_gate(tmp_path, monkeypatch):
     result = replay.instant_overlay(replay.moments(0)[0])
     assert result["validation"]["valid"], result
     assert result["overlay"]["headline"] == "GOAL Home, 1-0"
-    assert result["overlay"]["stats"] == [{"label": "shot speed", "value": 120.5, "unit": "km/h"}]
+    assert result["overlay"]["stats"] == [{"label": "shot speed", "value": 120, "unit": "km/h"}]
 
 
 def test_enriched_overlay_falls_back_to_gated_english(tmp_path, monkeypatch):
@@ -60,6 +63,8 @@ def test_ask_returns_only_the_validated_answer(tmp_path, monkeypatch):
     assert not client.post("/api/ask", json={"game": 0, "timestep": 11, "question": "What happened?"}).json()["verified"]
     client.post("/api/ask", json={"game": 0, "timestep": 3000, "question": "Give me the match recap.", "action": "recap"})
     assert "call match_recap with game_id=0 and as_of=3000" in prompts[-1] and "as_of=20" in prompts[0]
+    client.post("/api/ask", json={"game": 0, "timestep": 20, "question": "What happened?", "depth": "x", "tone": "shouty", "tactical": True})
+    assert '"depth": "balanced", "tone": "neutral", "tactical": true' in prompts[-1] and "Answer depth: balanced. Tone: neutral." in prompts[-1] and "shouty" not in prompts[-1]
 
 
 def test_stream_publishes_only_validated_cues(tmp_path, monkeypatch):
@@ -107,6 +112,81 @@ def test_agent_budget_blocks_after_hourly_limit(monkeypatch):
     else:
         raise AssertionError("third call should exceed the budget")
     replay.agent_calls.clear()
+
+
+def test_enrich_coalesces_identical_in_flight_calls(tmp_path, monkeypatch):
+    calls = []
+
+    def fake(prompt):
+        calls.append(prompt)
+        time.sleep(0.05)
+        return {"text": "ok", "envelopes": []}
+
+    monkeypatch.setattr(replay, "ask_orchestrator", fake)
+    monkeypatch.setattr(replay, "CACHE_DIR", tmp_path)
+    moment, profile = {"moment_id": "M0-0001", "start_timestep": 5, "known_timestep": 5}, replay.profile_from({})
+
+    async def both():
+        return await asyncio.gather(replay.enrich(0, moment, profile), replay.enrich(0, moment, profile))
+
+    first, second = asyncio.run(both())
+    assert len(calls) == 1 and first == second and not replay.inflight
+
+
+def test_single_flight_cancels_work_when_last_waiter_leaves():
+    async def scenario():
+        started = asyncio.Event()
+
+        async def work():
+            started.set()
+            await asyncio.sleep(10)
+
+        waiter = asyncio.create_task(replay.single_flight("k", work))
+        await started.wait()
+        flight = replay.inflight["k"][0]
+        waiter.cancel()
+        await asyncio.gather(waiter, return_exceptions=True)
+        await asyncio.sleep(0)
+        return flight
+
+    assert asyncio.run(scenario()).cancelled() and "k" not in replay.inflight
+
+
+def test_stream_close_cancels_agent_tasks():
+    async def scenario():
+        task = asyncio.create_task(asyncio.sleep(10))
+
+        async def chunks():
+            yield "a"
+            yield "b"
+
+        stream = replay.cancel_on_close(chunks(), {task})
+        assert await stream.__anext__() == "a"
+        await stream.aclose()
+        await asyncio.sleep(0)
+        return task
+
+    assert asyncio.run(scenario()).cancelled()
+
+
+def test_stream_shows_loading_then_rate_limit_and_keeps_cues(monkeypatch):
+    from starlette.testclient import TestClient
+
+    async def over_budget(*_):
+        raise replay.BudgetExceeded("hourly live agent budget reached")
+
+    moment = {"moment_id": "M0-0001", "moment_type": "goal", "start_timestep": 0, "known_timestep": 0, "importance": 1.0}
+    monkeypatch.setattr(replay, "ENRICH", True)
+    monkeypatch.setattr(replay, "TICK_S", 0.01)
+    monkeypatch.setattr(replay, "replay_plan", lambda *_: (3, [moment], []))
+    monkeypatch.setattr(replay, "frame_at", lambda game_id, t: {"t": t})
+    monkeypatch.setattr(replay, "instant_overlay", lambda m, profile: {"overlay": {"moment_id": m["moment_id"]}, "validation": {"valid": True}, "cue_validation": {"valid": True}})
+    monkeypatch.setattr(replay, "enrich", over_budget)
+    with TestClient(replay.app).stream("GET", "/api/stream?game=0&speed=120") as response:
+        body = "".join(response.iter_text())
+    names = re.findall(r"^event: (\w+)", body, re.M)
+    assert names[0] == "status" and '"state": "loading"' in body.split("\n\n")[0]
+    assert "moment" in names and '"state": "rate_limited"' in body and names[-1] == "done"
 
 
 def test_cors_preflight_allows_private_network_for_tauri_origin():

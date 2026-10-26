@@ -50,17 +50,29 @@ def test_player_value_counts_only_actions_so_far(tmp_path, monkeypatch):
     assert lines["tackle"].synthetic and not lines["goal"].synthetic
     expected = sum(v.ACTIONS[a][2] for a in lines)
     assert card.match_value_gbp == expected
-    assert card.wage_so_far_gbp == int(150000 * v.MIN_SHARE)
+    assert card.wage_so_far_gbp == int(150000 * 100 / (STEPS - 1))
     assert card.verdict == "bargain" and "record signing" in card.why_paid
     assert v.player_value(0, 9, 2500, STEPS).match_value_gbp == expected + v.ACTIONS["interception"][2]
 
 
-def test_keeper_credited_for_shot_faced(tmp_path, monkeypatch):
+def test_keeper_credit_uses_only_known_shot_outcomes(tmp_path, monkeypatch):
     _setup(tmp_path, monkeypatch)
-    assert v.player_value(0, 0, 100, STEPS).breakdown == []
-    keeper = v.player_value(0, 0, 50 + v.SHOT_TO_GOAL, STEPS)
-    assert [line.action for line in keeper.breakdown] == ["shot_faced"]
-    assert v.player_value(0, 100, 100, STEPS).breakdown == []
+    pd.DataFrame([{"moment_id": "M0-0001", "GAME_ID": 0, "start_timestep": 0, "end_timestep": 30, "moment_type": "goal", "TEAM_ID": 0, "PLAYER_ID": 9, "event_ids": "0-2", "metrics": json.dumps({"score_after": "1-0"})}]).to_csv(tmp_path / "games_0" / "key_moments.csv", index=False)
+    server._data.cache_clear()
+    v.actions.cache_clear()
+    known = 50 + v.SHOT_TO_GOAL
+    assert v.player_value(0, 0, known - 1, STEPS).breakdown == []
+    assert [line.action for line in v.player_value(0, 0, known, STEPS).breakdown] == ["shot_faced"]
+    assert v.player_value(0, 100, STEPS - 1, STEPS).breakdown == []
+
+
+def test_value_ratio_compares_team_shares(tmp_path, monkeypatch):
+    _setup(tmp_path, monkeypatch)
+    assert v.player_value(0, 9, 0, STEPS).value_ratio == 1.0
+    card = v.player_value(0, 9, 100, STEPS)
+    share = 150000 / (150000 + 45000)
+    assert card.value_ratio == round((card.match_value_gbp / share + v.TEAM_VALUE_PRIOR_GBP) / (card.match_value_gbp + v.TEAM_VALUE_PRIOR_GBP), 2)
+    assert "77% of its wage bill" in card.why_value
 
 
 def test_money_cues_follow_money_interest(tmp_path, monkeypatch):
@@ -84,7 +96,7 @@ def test_value_explanations_follow_language(tmp_path, monkeypatch):
     _setup(tmp_path, monkeypatch)
     en, es = v.player_value(0, 9, 100, STEPS), v.player_value(0, 9, 100, STEPS, "es")
     assert es.match_value_gbp == en.match_value_gbp and es.verdict == en.verdict == "bargain"
-    assert es.why_value.startswith(f"{v._gbp(es.match_value_gbp)} de valor frente a {v._gbp(es.wage_so_far_gbp)} de salario hasta ahora")
+    assert es.why_value.startswith(f"{v._gbp(es.match_value_gbp)} de valor, el 100% del total del equipo hasta ahora, por el 77% de su masa salarial")
     assert "1 gol (£150k)" in es.why_value and es.why_value.endswith("Veredicto: una ganga.")
     assert es.why_paid.startswith("Daniel Moreau cobra £150k a la semana (record signing). A los mediocentros")
     goal = next(cue for cue in v.money_cues(0, {"language": "es"}, STEPS) if cue.event_type == "value_goal")

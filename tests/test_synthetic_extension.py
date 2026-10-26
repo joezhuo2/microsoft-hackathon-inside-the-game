@@ -23,11 +23,10 @@ def frames(dest, name):
 
 
 def test_rows_are_flagged_synthetic(generated):
-    for name in ("synthetic_events.csv", "synthetic_substitutions.csv"):
-        for df in frames(generated, name):
-            assert len(df) > 0
-            assert (df["data_source"] == "synthetic").all()
-            assert (df["synthetic"].astype(str) == "True").all()
+    for df in frames(generated, "synthetic_events.csv"):
+        assert len(df) > 0
+        assert (df["data_source"] == "synthetic").all()
+        assert (df["synthetic"].astype(str) == "True").all()
 
 
 def test_event_ids_unique_with_prefix(generated):
@@ -36,16 +35,17 @@ def test_event_ids_unique_with_prefix(generated):
 
 
 def test_player_ids_in_roster(generated):
-    roster = {int(i) for i in json.loads((ROOT / "data" / "roster.json").read_text(encoding="utf-8"))["players"]}
-    ev = pd.concat(frames(generated, "synthetic_events.csv"))
-    subs = pd.concat(frames(generated, "synthetic_substitutions.csv"))
-    used = set(ev["PLAYER_ID"]) | set(subs["player_off_id"]) | set(subs["player_on_id"])
-    assert used <= roster
+    players = json.loads((ROOT / "data" / "roster.json").read_text(encoding="utf-8"))["players"]
+    starters = {int(i) for i, person in players.items() if not person.get("bench")}
+    assert set(pd.concat(frames(generated, "synthetic_events.csv"))["PLAYER_ID"]) <= starters
 
 
-def test_substitution_window(generated):
-    subs = pd.concat(frames(generated, "synthetic_substitutions.csv"))
-    assert subs["start_timestep"].between(2000, 2500).all()
+def test_no_synthetic_substitutions_against_fixed_tracking_lineup(tmp_path):
+    stale = tmp_path / "games_0-2" / "synthetic_substitutions.csv"
+    stale.parent.mkdir()
+    stale.write_text("stale")
+    ext.run(ROOT / "output", tmp_path)
+    assert not list(tmp_path.glob("games_*/synthetic_substitutions.csv"))
 
 
 def test_deterministic(generated, tmp_path):

@@ -174,7 +174,7 @@ Maps output file groups to short descriptions and unit notes. It is descriptive 
 
 
 
-Written by `scripts/extend_synthetic.py` into each `output/games_*` folder. Every row and field is synthetic demo data, not observed from tracking, and must never be presented as observed. Timesteps use the same 3000-per-90-minute scale as `match_clock()`.
+Written by `scripts/extend_synthetic.py` into each `output/games_*` folder. Every row and field is synthetic demo data, not observed from tracking, and must never be presented as observed. Timesteps use the same 3000-per-90-minute scale as `match_clock()`. No substitutions are synthesized: the tracking keeps the same 11 players per side all match, so every event stays with a starter.
 
 
 
@@ -205,30 +205,6 @@ Invented tackle and pressure events seeded from real candidate events. Synthetic
 | `synthetic` | Always `True`. |
 
 | `label` | Short display text, for example `Synthetic tackle`. |
-
-
-
-### `synthetic_substitutions.csv`
-
-
-
-One to three invented substitutions per team per game, between minute 60 and 75 (timesteps 2000 to 2500). Synthetic flag: every row has `data_source = synthetic` and `synthetic = True`.
-
-
-
-| Field | Meaning |
-
-| --- | --- |
-
-| `GAME_ID`, `TEAM_ID` | Match and team. |
-
-| `start_timestep` | Substitution timestep. |
-
-| `player_off_id` | Starter leaving the pitch. |
-
-| `player_on_id` | Bench player (roster entries with `bench` and `synthetic` true) entering. |
-
-| `data_source`, `synthetic` | Always `synthetic` and `True`. |
 
 
 
