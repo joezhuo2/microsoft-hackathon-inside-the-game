@@ -6,11 +6,11 @@ Football fans and broadcast producers get plenty of match data and little explan
 
 ## What we built
 
-A live replay of a fictional match between Kestrel Vale FC and Port Saltmere United, with a transparent desktop overlay that shows cues in the corner. An Ask the Match panel answers quick and free-text questions, viewer feedback sets the depth of detail, and a producer view queues and airs cues.
+A live replay of a fictional match between Kestrel Vale FC and Port Saltmere United, with a transparent desktop overlay that shows cues in the corner. An Ask the Match panel answers free-text questions, viewer feedback sets the depth of detail, and a producer view queues and airs cues.
 
 ## Why it is multi-agent
 
-A deterministic event interpreter finds moments from tracking data, so the facts come from code. Specialist Foundry agents explain them: `match-moment-explainer` (why a moment matters), `player-lens` (player profiles), `match-narrator` (commentary and overlay payloads) and `fan-personalizer` (viewer depth and language). `match-orchestrator` coordinates them. The fact and consistency checker is the `validate_claims` and `validate_overlay` tools, which reject any cited id or number not in the match record.
+A deterministic event interpreter finds moments from tracking data, so the facts come from code. Specialist Foundry agents explain them: `match-moment-explainer` (why a moment matters), `player-lens` (player profiles), `match-narrator` (commentary and overlay payloads) and `fan-personalizer` (viewer interests, depth and language). `match-orchestrator` coordinates them. The fact and consistency checker is the `validate_claims` and `validate_overlay` tools, which reject any cited id or number not in the match record.
 
 ## Real-world impact
 
@@ -22,4 +22,4 @@ All clubs, players and match data are fictional and synthetic. The tracking inpu
 
 ## What is next
 
-Calibrate the metrics against annotated tracking windows, add the synthetic-data extension (being added in parallel: `scripts/extend_synthetic.py` and its generated files), and test the overlay with real viewers.
+Calibrate the metrics against annotated tracking windows, and test the overlay with real viewers.

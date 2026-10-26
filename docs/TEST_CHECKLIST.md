@@ -12,12 +12,16 @@ Run from the repo root:
 
 | File | What it covers |
 | --- | --- |
-| `tests/test_commentary.py` | Schema files match the Pydantic models; no future events leak into a response and the headline is clean; a player name in the question routes to focus-player; action detection from question text; feedback adjusts viewer preferences; agent profile collapses viewer types; viewer type derived from interests. |
-| `tests/test_mcp_server.py` | `validate_claims` accepts cited facts and rejects uncited ones; `validate_overlay` checks schema and that numbers are backed by the moment. |
-| `tests/test_overlay_cues.py` | The overlay cue schema file matches its model; a goal cue is themed, traceable to source events and gated; rhythm changes map to control, and a favourite player gets a priority bump. |
-| `tests/test_pipeline.py` | Tracking CSV loading; coordinate normalisation keeps source values and does not clip; ball and player detection in preprocessing; both supplied CSVs load all six games; stationary entities have zero speed; diagnostics do not bridge gaps or resets; possession and event creation; the tracking-only pass detector ignores labels; an uncontrolled distant ball stays unknown; nearest-player distances split by team; pass quality, ball speed and pass difficulty; a score change becomes a goal moment with its clock; sprint tags need sustained speed. |
-| `tests/test_replay_server.py` | An instant overlay passes the gate; an enriched overlay falls back to gated English when agents fail; the agent call budget blocks after the hourly limit; timeline marker categories follow turning point > your player > supporting; a stream started before a moment replays it, one started after does not, and `start` lists only marker types the dials keep. |
-| `tests/test_synthetic_extension.py` | Generated synthetic rows are flagged synthetic; event ids are unique and prefixed; player ids exist in the roster; the substitution window is respected; generation is deterministic. This file covers the synthetic-data extension in `scripts/extend_synthetic.py`. |
+| `tests/test_commentary.py` (9) | Schema files match the Pydantic models; no future events leak into a response and the headline is clean; a player name in the question routes to focus-player; a recap question builds the whole-match recap; player 0 is a real selection; action detection from question text; feedback adjusts viewer preferences; agent profile collapses viewer types; viewer type derived from interests. |
+| `tests/test_mcp_server.py` (4) | `validate_claims` accepts cited facts and rejects uncited ones; `validate_overlay` checks schema and that numbers are backed by the moment; `as_of` hides data not finished yet; the gate rejects invented events and numbers. |
+| `tests/test_orchestrator.py` (1) | A live moment forwards the interest dials to `fan-personalizer`. |
+| `tests/test_overlay_cues.py` (9) | The overlay cue schema file matches its model; a goal cue is themed, traceable to source events and gated; cues fire when the moment is known; rhythm changes map to control, and a favourite player gets a priority bump; interests parse and clamp; a Skip stat drops cues and an Obsessed stat bumps them; the goal cue follows the profile language; every language in the i18n table covers every template. |
+| `tests/test_pipeline.py` (14) | Tracking CSV loading; coordinate normalisation keeps source values and does not clip; ball and player detection in preprocessing; both supplied CSVs load all six games; stationary entities have zero speed; diagnostics do not bridge gaps or resets; possession and event creation; the tracking-only pass detector ignores labels; an uncontrolled distant ball stays unknown; nearest-player distances split by team; pass quality, ball speed and pass difficulty; a score change becomes a goal moment with its clock; sprint tags need sustained speed. |
+| `tests/test_replay_server.py` (15) | An instant overlay passes the gate; the stream publishes only validated cues; an enriched overlay falls back to gated English when agents fail, and enriched text is the validated string; Ask returns only the validated answer; feedback tone reaches live enrichment; the agent call budget blocks after the hourly limit and the stream shows the rate-limit status while keeping cues; timeline marker categories follow turning point > your player > supporting; a stream started before a moment replays it, and `start` lists only marker types the dials keep; identical in-flight enrich calls coalesce, and single-flight work is cancelled when the last waiter leaves or the stream closes; CORS preflight allows private network for the Tauri origin; `profile_from` derives persona from interests. |
+| `tests/test_synthetic_extension.py` (5) | Generated synthetic rows are flagged synthetic; event ids are unique and prefixed; player ids exist in the roster; no `synthetic_substitutions.csv` is written against the fixed tracking lineup; generation is deterministic. This file covers `scripts/extend_synthetic.py`. |
+| `tests/test_valuation.py` (7) | Player value counts only actions so far; keeper credit uses only known shot outcomes; value ratio compares team shares; money cues follow the money interest; the value board is sorted by ratio; value explanations follow the language; the value schema file matches its model. |
+
+Collected at this commit: 64 tests in 8 files.
 
 ## B. Manual browser checks
 
@@ -27,13 +31,14 @@ Start the replay server and open the overlay in a browser (`/` for the overlay, 
 - [ ] At 390px wide the stat tiles wrap into rows and no tile is clipped.
 - [ ] The Ask the match tile opens and closes the Ask panel.
 - [ ] Opening Ask the match closes Match centre, and opening Match centre closes Ask the match (accordion behaviour).
-- [ ] Each quick-action chip (Explain more, Show tactics, Focus on player, Make it simpler, Give me the numbers, Why did this matter?) returns a commentary response.
+- [ ] Recap and Player focus in Match centre each return a commentary response. The Ask panel has no quick-action chips.
 - [ ] A typed question in the Ask field returns a commentary response.
 - [ ] The Too basic feedback button changes the depth setting and shows an effect note.
 - [ ] Each feedback button (Too basic, Too technical, More tactical, More emotional, Follow this player) shows an effect note.
-- [ ] On first load with no saved preferences, the onboarding dialog "What do you care about?" appears with five dials, each showing its value and band.
+- [ ] On first load with no saved preferences, the onboarding dialog "What do you care about?" appears with five dials, each showing its value and band. Nothing streams (no frames, cues or status) until Start; Escape also starts.
+- [ ] Match centre dials show each value and band (for example "Light"), and each change reconnects the stream.
 - [ ] Start closes the onboarding dialog.
-- [ ] Moving a Match centre dial below 20 stops that stat's cues after the stream reconnects.
+- [ ] Moving a Match centre dial into Skip (below 20) stops that stat's cues after the stream reconnects.
 - [ ] After closing the onboarding dialog, reloading the page does not show it again (`match-onboarded` in localStorage).
 - [ ] On first load, focus moves into the onboarding dialog, Tab stays inside it, Escape or Start closes it and focus lands on Match centre.
 - [ ] After reload, the Language, Club and Player picks are restored and the replay does not start before Start on a first visit.
@@ -51,7 +56,7 @@ Start the replay server and open the overlay in a browser (`/` for the overlay, 
 - [ ] With player Tomas Ellery (id 0) selected, Player focus and Focus on player answer about Ellery; a Focus on [name] reply answers about that player.
 - [ ] The Kick off splash appears when the replay starts.
 - [ ] The Half time splash appears at the half time point, followed by the Second half splash.
-- [ ] The Full time splash appears at the end of the match, followed by the Match recap splash.
+- [ ] The Full time splash appears at the end of the match, followed by the Match recap splash, then the Ask panel shows the real whole-match recap from the data.
 - [ ] Splashes appear in that order: Kick off, Half time, Second half, Full time, Match recap.
 - [ ] A theme sting (for example Goal threat) appears on a qualifying cue.
 - [ ] No theme sting appears during the Half time splash.
@@ -61,6 +66,9 @@ Start the replay server and open the overlay in a browser (`/` for the overlay, 
 - [ ] The producer view shows the Auto high, Auto medium and Auto low toggles, and each can be changed.
 - [ ] The producer view shows the Min confidence slider and its value updates.
 - [ ] The producer view shows Air and Drop buttons on queued cues, and each changes the cue state (Air becomes On air, Drop becomes Dropped).
+- [ ] The Player value tile opens the money panel. The selected player's card has a "Why they're paid that" section.
+- [ ] The AI analysis list scrolls when it has more entries than fit.
+- [ ] With Español, Français, Deutsch, Português or Italiano picked, the fixed text (splashes, transitions, feedback buttons, cue explanations) appears in that language. With العربية, 日本語 or 中文 picked, only the agent text is translated.
 - [ ] With the system setting for reduced motion on, cue alerts, splashes and feed items do not slide, blur or pulse.
 - [ ] In the Tauri build, clicks on empty desktop areas outside the overlay controls reach the desktop.
 - [ ] In the Tauri build, clicks on the Match centre, Ask the match, producer queue, Recent cues, timeline diamonds and onboarding controls work.

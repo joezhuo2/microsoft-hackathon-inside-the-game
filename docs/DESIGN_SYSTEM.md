@@ -22,7 +22,7 @@ Core tokens from the `:root` block of `style.css`:
 | `--font` | `"Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif` |
 | `--hex` | a faint hexagon SVG pattern used by `.hex` at `stroke-opacity='0.07'` |
 
-These are the only custom properties declared in `:root`. `--accent` is not declared there. It is set per cue by `app.js` (`box.style.setProperty("--accent", ...)`), and CSS reads it as `var(--accent, #fff)`, so `#fff` is the fallback.
+These are the only custom properties in the first `:root` block. A second `:root` block near line 175 of `style.css` adds `--money: #d4af37` and `--loss: #f87171` for the value panel. `--accent` is not declared in either block. It is set per cue by `app.js` (`box.style.setProperty("--accent", ...)`), and CSS reads it as `var(--accent, #fff)`, so `#fff` is the fallback.
 
 The timeline declares `--turning: #fbbf24` (turning point diamond, 12px, glow) and `--yours: #22d3ee` (your player diamond, 10px, white ring); supporting diamonds are 7px hollow `var(--muted)`. Size and outline differ as well as colour, and a legend labels all three.
 
@@ -44,6 +44,7 @@ Tags (`.tag`) are white with black uppercase text. `.tag.ghost` and `.tag.warn` 
 | `defensive_masterclass` | Defensive masterclass | `#4ade80` | `lock` | medium |
 | `chaos_index` | Chaos index | `#f472b6` | `flicker` | low |
 | `control_index` | Control index | `#60a5fa` | `settle` | low |
+| `value_swing` | Value swing | `#d4af37` | `rise` | medium |
 | `milestone` | Milestone | `#e5e7eb` | `rise` | medium |
 | `recap_cue` | Recap | `#cbd5e1` | `settle` | high |
 
@@ -53,9 +54,9 @@ Notes on the table:
 - The `priority` field in `themes.js` is not read anywhere in `app.js`. The overlay gates on `cue.priority` from the cue itself (see the priority section below). The registry value is therefore informational in the current UI.
 - `milestone` and `recap_cue` use neutral greys (`#e5e7eb`, `#cbd5e1`), so they stay close to the monochrome look.
 
-Icons come from the `icon` field of each theme. The names are `breakthrough`, `pressure`, `wave`, `spotlight`, `target`, `shield`, `chaos`, `control`, `flag` and `recap`. The icon paths are defined in `app.js` (`svg()`), not in `themes.js`.
+Icons come from the `icon` field of each theme. `svg()` in `app.js` looks the name up in `ICONS` (`wave`, `target`, `shield`) and then in `THEME_ICONS` in `themes.js` (`breakthrough`, `pressure`, `spotlight`, `chaos`, `control`, `coin`, `flag`, `recap`).
 
-Stings: `app.js` defines `STINGS` for five themes only: `goal_threat` ("Goal threat"), `momentum_swing` ("Momentum shift"), `player_spotlight` ("Player spotlight"), `control_index` ("Tactical reset") and `chaos_index` ("Tactical reset"). A sting is a short splash in the theme accent (see the splash section).
+Stings: `app.js` defines `STINGS` for six themes: `goal_threat` ("Goal threat"), `momentum_swing` ("Momentum shift"), `player_spotlight` ("Player spotlight"), `control_index` ("Tactical reset"), `chaos_index` ("Tactical reset") and `value_swing` ("Money move"). A sting is a short splash in the theme accent (see the splash section).
 
 ## Type scale and tokens
 
@@ -72,6 +73,7 @@ Font sizes actually used in `style.css`, grouped by role:
 | 13px | Inputs and selects, `.cue-chip`, `#answer`, `#commentary` |
 | 14px | Base body text, feed headings (`.entry h3`) |
 | 15px | `.tile-label`, `#commentary h3` |
+| 16px | `#valuePanel h3` |
 | 17px | Team names (`.team`), `.clock` |
 | 18px | `#onboard h2` |
 | 19px | `.chips b` |
@@ -92,7 +94,7 @@ The overlay is a transparent full-screen window. Only elements marked `data-hit`
 
 How it works, from `overlay/ui/app.js` and `overlay/src-tauri/src/main.rs`:
 
-- `index.html` marks the interactive surfaces with `data-hit`: `#dockBtn`, `#panel`, `#askBtn`, `#askPanel`, `#valueBtn`, `#valuePanel`, `#studio` (producer controls), `#history` (Recent cues), `#timeline` (timeline bar and its diamonds) and `#onboard`.
+- `index.html` marks the interactive surfaces with `data-hit`: `#dockBtn`, `#panel`, `#askBtn`, `#askPanel`, `#valueBtn`, `#valuePanel`, `#feedList` (AI analysis), `#studio` (producer controls), `#history` (Recent cues), `#timeline` (timeline bar and its diamonds) and `#onboard`.
 - `reportHitRegions()` in `app.js` collects the bounding rectangles of every `[data-hit]` element that has a non-zero size. It sends them to Rust with `set_hit_regions` only when the list has changed.
 - In `main.rs`, the window starts with `set_ignore_cursor_events(true)`. A background thread checks the cursor every 30 ms. It stops ignoring events only when the cursor is inside one of the reported rectangles.
 - `Ctrl+Shift+O` toggles a lock (`LOCKED`). When locked, the whole overlay is click-through and a `click-through` event is emitted. `app.js` then adds `body.locked`, which hides `#dock` (`body.locked #dock { opacity: 0; pointer-events: none; visibility: hidden; }`), which also removes the controls from the tab order. The on-screen hint reads "Ctrl+Shift+O hides controls".
@@ -108,7 +110,7 @@ The `@media (prefers-reduced-motion: reduce)` block in `style.css` is:
 #alert, .cue-chip, .feed-item, #splash { transform: none !important; filter: none !important; transition: opacity 0.25s linear !important; }
 ```
 
-So all keyframe animations stop. The moment alert, cue chips, feed items and splash keep only a 0.25s opacity fade and lose their transforms and blurs.
+So all keyframe animations stop. Alert, cue chips, feed items and splash keep only a 0.25s opacity fade and lose their transforms and blurs.
 
 ## Mobile behaviour (900px breakpoint)
 
@@ -138,6 +140,14 @@ const DEPTH_PRIORITIES = { headlines: ["high"], balanced: ["high", "medium"], de
 Depth defaults come from the interest dials (`PERSONA_DEPTH` in `app.js`): a mean of 70 or more (analyst) uses `deep`, 25 or less (newcomer) uses `headlines`, and anything else uses `balanced`. The feedback control "Too basic" raises depth one step and "Too technical" lowers it one step (`apply_feedback` in `src/football_analytics/commentary.py`).
 
 Producer view (`?view=studio`) does not use the depth filter. In `routeCue()`, the studio branch (`if (STUDIO) return studioCue(data);`) returns before the `visiblePriorities()` check. Cues go to the producer queue instead, and airing is controlled by the per-priority Auto toggles (defaults: `high` and `medium` on, `low` off) and the minimum confidence slider.
+
+## Recent cues
+
+`#history` is an open `<details>` list of the last 10 cues (`MAX_HISTORY` in `app.js`). It is cleared when the replay restarts from the beginning.
+
+## Dials and disclosure
+
+`buildDials()` in `app.js` renders one `label.dial` row per interest (a name, a 0-100 range input in steps of 5, and an output) inside `.dials`. The same markup is used in `#onboard` and in Match centre. `.disclosure` is the two-line note under the controls: the clock is 3000 timesteps scaled to 90 minutes, and speeds and distances assume 0.1 s per timestep.
 
 ## Files
 
