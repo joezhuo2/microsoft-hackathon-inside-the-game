@@ -77,7 +77,7 @@ See [DATA_DICTIONARY.md](DATA_DICTIONARY.md) for source fields, derived frame me
 
 ## MCP tool server
 
-`python -m football_analytics.mcp_server` serves the analysis outputs as read-only MCP tools over streamable HTTP at `/mcp` (set `MCP_API_KEY` to require an `x-api-key` header). `validate_claims` and `validate_overlay` act as the quality gate for agent text and overlay JSON.
+`python -m football_analytics.mcp_server` serves the analysis outputs as read-only MCP tools over streamable HTTP at `/mcp` (set `MCP_API_KEY` to require an `x-api-key` header). `validate_claims` and `validate_overlay` act as the quality gate for agent text and overlay JSON: every number must match a value in the cited records (percentages and probabilities only a cited share, index or momentum field), and penalty, card, foul, offside, VAR, injury, referee or substitution wording is rejected unless a cited record has that type. Time-indexed tools take `as_of` and only return or accept data finished by that timestep (shots count from release, everything else from its `end_timestep`).
 
 Deploying to Azure Container Apps without Docker or ACR Tasks (blocked on Azure for Students):
 
@@ -92,7 +92,7 @@ The `Dockerfile` builds the same image where Docker or ACR Tasks are available.
 
 ## Live overlay
 
-`python -m football_analytics.replay_server` (port 8765, dependencies in `requirements-replay.txt`) replays the tracking data as a live feed over server-sent events. Every key moment gets an instant overlay built from the data and checked by `validate_overlay`. High-importance moments are then sent to the `match-orchestrator` agent in the background, and its personalized overlay appears in the insight feed once it passes the same gate. It uses your `az login` for Foundry. Set `ENRICH=0` to run without agents. Finished agent results are cached in `build/enrich_cache/`.
+`python -m football_analytics.replay_server` (port 8765, dependencies in `requirements-replay.txt`) replays the tracking data as a live feed over server-sent events. Every key moment gets an instant overlay built from the data once the moment is finished (goals at the score change), and only data known by then is used. Every cue, derived or agent-written, is published only if it passes the gate; otherwise the data-built cue is used or nothing is shown. High-importance moments are then sent to the `match-orchestrator` agent in the background, and its personalized overlay and text appear in the insight feed only if both pass the same gate. Full time shows a whole-match recap built from the data, plus the agents' `match_recap` when they are on. It uses your `az login` for Foundry. Set `ENRICH=0` to run without agents. Finished agent results are cached in `build/enrich_cache/`.
 
 The overlay opens with five "how much I care" dials (speed, passing, pressure, possession, money; 0-100, default 50, bands Skip <20, Light, Into it, Obsessed >=75). They reach the stream as `interests=speed:80,money:20,...`: cues for a stat below 20 are dropped, cues at 75 or above get a priority bump, and goals, shots and recaps always show. The viewer type sent to the agents is derived from the dials (`persona_for` in `commentary.py`), and the bands are added to the agent profile and Ask style. Change them any time in Match centre; the stream reconnects with the new weights.
 

@@ -19,7 +19,7 @@ def _setup(tmp_path, monkeypatch):
         {"event_id": "0-3", "GAME_ID": 0, "start_timestep": 400, "event_type": "pass_attempt", "PLAYER_ID": 9, "TEAM_ID": 0, "ball_speed_kmh": None},
     ]).to_csv(folder / "events.csv", index=False)
     pd.DataFrame([
-        {"moment_id": "M1", "GAME_ID": 0, "start_timestep": 5, "end_timestep": 450, "match_clock": "00:22", "moment_type": "goal", "TEAM_ID": 0, "PLAYER_ID": 9, "importance": 1.0, "event_ids": "0-1;0-2;0-3", "metrics": json.dumps({"score_after": "1-0"}), "fact_hint": "Goal for team 0; score 1-0"},
+        {"moment_id": "M1", "GAME_ID": 0, "start_timestep": 5, "end_timestep": 50, "match_clock": "00:22", "moment_type": "goal", "TEAM_ID": 0, "PLAYER_ID": 9, "importance": 1.0, "event_ids": "0-1;0-2;0-3", "metrics": json.dumps({"score_after": "1-0"}), "fact_hint": "Goal for team 0; score 1-0"},
     ]).to_csv(folder / "key_moments.csv", index=False)
     roster = tmp_path / "roster.json"
     roster.write_text(json.dumps({"clubs": {"0": {"name": "Home", "short": "HOM"}, "1": {"name": "Away", "short": "AWY"}}, "players": {"9": {"name": "Daniel Moreau", "short": "Moreau", "number": 10}}}))
@@ -51,7 +51,17 @@ def test_player_name_routes_to_focus_player(tmp_path, monkeypatch):
     assert response.observed[0].startswith("2 involvements")
 
 
+def test_recap_question_builds_whole_match_recap(tmp_path, monkeypatch):
+    _setup(tmp_path, monkeypatch)
+    recap = c.respond(0, 3000, c.ViewerPreferences(), STATS, "question", "Give me the match recap so far.")
+    assert (recap.action, recap.headline) == ("recap", "So far: HOM 1-0 AWY")
+    assert recap.observed[0] == f"{c.match_clock(50)} Goal, Home (Daniel Moreau): 1-0"
+    assert "Possession 60% HOM to 40% AWY" in recap.observed and recap.interpretation.startswith("HOM lead 1-0.")
+    assert c.respond(0, 40, c.ViewerPreferences(), STATS, "recap").headline == "So far: HOM 0-0 AWY"
+
+
 def test_detect_action():
+    assert c.detect_action("give me a summary") == "recap"
     assert c.detect_action("Why did that matter?") == "why"
     assert c.detect_action("show me the pressing shape") == "show_tactics"
     assert c.detect_action("give me the numbers") == "numbers"

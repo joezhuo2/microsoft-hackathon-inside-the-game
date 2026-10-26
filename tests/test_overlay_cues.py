@@ -41,6 +41,17 @@ def test_goal_cue_is_themed_traceable_and_gated(tmp_path, monkeypatch):
     assert goal["overlay"]["headline"] == "GOAL Home, 1-0"
 
 
+def test_cues_fire_when_the_moment_is_known(tmp_path, monkeypatch):
+    from football_analytics.match_intelligence import known_timestep
+
+    _setup(tmp_path, monkeypatch)
+    goal, rhythm = (replay.instant_overlay(m) for m in replay.moments(0))
+    assert (goal["cue"]["timestep"], goal["cue"]["match_clock"], goal["overlay"]["start_timestep"]) == (12, cues.match_clock(12), 12)
+    assert rhythm["cue"]["timestep"] == 50
+    frame = pd.DataFrame([{"start_timestep": 3, "end_timestep": 9, "moment_type": "shot"}, {"start_timestep": 3, "end_timestep": 9, "moment_type": "goal"}])
+    assert known_timestep(frame).tolist() == [3, 9]
+
+
 def test_rhythm_to_control_and_favourite_player_bump(tmp_path, monkeypatch):
     _setup(tmp_path, monkeypatch)
     rhythm = replay.instant_overlay(replay.moments(0)[1])["cue"]

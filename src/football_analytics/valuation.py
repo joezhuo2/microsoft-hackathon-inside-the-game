@@ -13,6 +13,7 @@ from .overlay_cues import CONFIDENCE, DURATION_MS, Metric, OverlayCue, PlayerFoc
 PROGRESSIVE_M = 10.0
 HARD_PASS = 50.0
 MIN_SHARE = 0.2
+SHOT_TO_GOAL = 180
 CUE_ACTIONS = ("goal", "shot", "progressive_pass", "interception")
 
 ACTIONS: dict[str, tuple[str, str, int]] = {
@@ -91,7 +92,7 @@ def _synthetic_events() -> pd.DataFrame:
 
 
 def _rows(frame: pd.DataFrame, action: str, synthetic: bool = False, id_column: str = "event_id") -> pd.DataFrame:
-    out = frame[[id_column, "GAME_ID", "start_timestep", "PLAYER_ID"]].rename(columns={id_column: "event_id"}).dropna(subset=["PLAYER_ID"])
+    out = frame.assign(start_timestep=intel._known(frame))[[id_column, "GAME_ID", "start_timestep", "PLAYER_ID"]].rename(columns={id_column: "event_id"}).dropna(subset=["PLAYER_ID"])
     return out.assign(action=action, synthetic=synthetic)
 
 
@@ -102,9 +103,9 @@ def _shots_faced(events: pd.DataFrame, moments: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for _, shot in events[(events["event_type"] == "shot_candidate") & events["TEAM_ID"].notna()].iterrows():
         defending = 1 - int(shot["TEAM_ID"])
-        scored = goals[(goals["GAME_ID"] == shot["GAME_ID"]) & (goals["start_timestep"] - shot["start_timestep"]).between(0, 120)]
+        scored = goals[(goals["GAME_ID"] == shot["GAME_ID"]) & (goals["end_timestep"] - shot["start_timestep"]).between(0, SHOT_TO_GOAL)]
         if defending in keeper_of and scored.empty:
-            rows.append({"event_id": shot["event_id"], "GAME_ID": shot["GAME_ID"], "start_timestep": shot["start_timestep"], "PLAYER_ID": keeper_of[defending], "action": "shot_faced", "synthetic": False})
+            rows.append({"event_id": shot["event_id"], "GAME_ID": shot["GAME_ID"], "start_timestep": min(int(shot["start_timestep"]) + SHOT_TO_GOAL, intel._match_end(int(shot["GAME_ID"]))), "PLAYER_ID": keeper_of[defending], "action": "shot_faced", "synthetic": False})
     return pd.DataFrame(rows, columns=["event_id", "GAME_ID", "start_timestep", "PLAYER_ID", "action", "synthetic"])
 
 
@@ -237,5 +238,6 @@ def money_cues(game_id: int, profile: dict[str, Any], steps: int) -> list[Overla
             team_id=0 if player_id < 100 else 1, player_focus=PlayerFocus(player_id=player_id, name=name, involvement=singular),
             supporting_metrics=[Metric(label="action value", value=_gbp(unit)), Metric(label="match value", value=_gbp(card.match_value_gbp)), Metric(label="weekly wage", value=_gbp(card.weekly_wage_gbp))],
             source_event_ids=[row["event_id"]] if observed else [],
+            facts={"action_value_gbp": unit, "match_value_gbp": card.match_value_gbp, "weekly_wage_gbp": card.weekly_wage_gbp},
         ))
     return cues

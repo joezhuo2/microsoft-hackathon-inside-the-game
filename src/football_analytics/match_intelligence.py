@@ -12,6 +12,7 @@ PASS_TYPES = {"pass_attempt", "incomplete_pass_candidate"}
 RELEASE_TYPES = PASS_TYPES | {"shot_candidate", "clearance_candidate", "ball_release_candidate"}
 PRESSURE_TYPES = RELEASE_TYPES | {"carry", "dribble_candidate", "possession_gain_candidate", "interception_candidate"}
 SUBTYPE_DIFFICULTY_BONUS = {"through_ball_candidate": 10.0, "switch_of_play_candidate": 5.0, "cross_candidate": 5.0}
+KNOWN_AT_START = {"shot_candidate", "shot"}
 MOMENT_IMPORTANCE = {
     "goal": 1.0,
     "shot": 0.7,
@@ -31,6 +32,13 @@ def load_roster(path: str | Path) -> dict[str, Any]:
         return {"clubs": {}, "players": {}}
     with path.open("r", encoding="utf-8") as handle:
         return json.load(handle)
+
+
+def known_timestep(frame: pd.DataFrame) -> pd.Series:
+    if "end_timestep" not in frame.columns:
+        return frame["start_timestep"]
+    kind = frame.get("event_type", frame.get("moment_type"))
+    return frame["end_timestep"] if kind is None else frame["start_timestep"].where(kind.isin(KNOWN_AT_START), frame["end_timestep"])
 
 
 def match_clock(timestep: float, timesteps_per_match: int = 3000, match_minutes: float = 90.0) -> str:
@@ -193,7 +201,7 @@ def detect_key_moments(features: pd.DataFrame, events: pd.DataFrame, rhythm: pd.
             score = game_ball[f"TEAM_{team}_SCORE"].to_numpy()
             for at in np.flatnonzero(np.diff(score) > 0) + 1:
                 timestep = int(game_ball["TIMESTEP"].iloc[at])
-                lead_up = game_events[(game_events["TEAM_ID"] == team) & game_events["start_timestep"].between(timestep - 60, timestep) & game_events["event_type"].isin(RELEASE_TYPES | {"carry", "goal_candidate"})]
+                lead_up = game_events[(game_events["TEAM_ID"] == team) & game_events["start_timestep"].between(timestep - 60, timestep) & (known_timestep(game_events) <= timestep) & game_events["event_type"].isin(RELEASE_TYPES | {"carry", "goal_candidate"})]
                 shots = lead_up[lead_up["event_type"] == "shot_candidate"]
                 scorer_event = shots.iloc[-1] if len(shots) else lead_up.iloc[-1] if len(lead_up) else None
                 score_line = f"{int(game_ball['TEAM_0_SCORE'].iloc[at])}-{int(game_ball['TEAM_1_SCORE'].iloc[at])}"

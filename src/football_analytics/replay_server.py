@@ -74,10 +74,10 @@ def running_stats(game_id: int) -> dict[str, np.ndarray]:
     events = intel._game("events", game_id)
     tags = intel._game("player_tags", game_id)
 
-    def cumulative(rows: pd.DataFrame, column: str = "start_timestep") -> np.ndarray:
+    def cumulative(rows: pd.DataFrame) -> np.ndarray:
         counts = np.zeros((steps, 2))
         for team in (0, 1):
-            at = rows.loc[rows["TEAM_ID"] == team, column].clip(0, steps - 1).astype(int)
+            at = intel._known(rows[rows["TEAM_ID"] == team]).clip(0, steps - 1).astype(int)
             np.add.at(counts[:, team], at.to_numpy(), 1)
         return np.cumsum(counts, axis=0)
 
@@ -86,8 +86,8 @@ def running_stats(game_id: int) -> dict[str, np.ndarray]:
     rhythm = intel._game("match_rhythm", game_id)
     share = np.full(steps, 0.5)
     for _, window in rhythm.iterrows():
-        started = rhythm[rhythm["start_timestep"] <= window["start_timestep"]]
-        share[int(window["start_timestep"]):] = started["possession_share_team0"].mean()
+        finished = intel._game("match_rhythm", game_id, int(window["end_timestep"]))
+        share[min(int(window["end_timestep"]), steps - 1):] = finished["possession_share_team0"].mean()
     return {
         "possession": np.stack([share, 1 - share], axis=1) * 100,
         "shots": cumulative(events[events["event_type"] == "shot_candidate"]),
@@ -101,8 +101,7 @@ def running_stats(game_id: int) -> dict[str, np.ndarray]:
 def frame_at(game_id: int, timestep: int) -> dict[str, Any]:
     game = tracks()[game_id]
     t = min(timestep, game["steps"] - 1)
-    rhythm = intel._game("match_rhythm", game_id)
-    window = rhythm[rhythm["start_timestep"] <= t].tail(1)
+    window = intel._game("match_rhythm", game_id, t).tail(1)
     points = [[pid, *game["xy"][t, i]] for i, pid in enumerate(game["ids"]) if not np.isnan(game["xy"][t, i, 0])]
     return {
         "t": t,
@@ -127,6 +126,7 @@ def instant_overlay(moment: dict[str, Any], profile: dict[str, Any] | None = Non
     name = intel._name(player_id)
     club = _club(moment.get("TEAM_ID"))
     kind = moment["moment_type"]
+    known = int(moment["known_timestep"])
     if kind == "goal":
         headline = f"GOAL {club}, {metrics.get('score_after', '')}"
     elif kind in ("momentum_shift", "rhythm_change"):
@@ -137,12 +137,12 @@ def instant_overlay(moment: dict[str, Any], profile: dict[str, Any] | None = Non
     overlay = {
         "game_id": int(moment["GAME_ID"]),
         "moment_id": moment["moment_id"],
-        "start_timestep": int(moment["start_timestep"]),
+        "start_timestep": known,
         "display_seconds": 6 if moment["importance"] >= ENRICH_MIN_IMPORTANCE else 4,
         "template": TEMPLATES.get(kind, "stat_card"),
         "language": "en",
         "headline": headline[:60],
-        "body": f"{moment['match_clock']} · {club or 'Match'}"[:180],
+        "body": f"{match_clock(known)} · {club or 'Match'}"[:180],
         "player_id": player_id,
         "stats": stats[:4],
     }
@@ -150,14 +150,14 @@ def instant_overlay(moment: dict[str, Any], profile: dict[str, Any] | None = Non
     return {"overlay": overlay, "validation": intel.validate_overlay(overlay), "moment_type": kind, "importance": float(moment["importance"]), "team_id": None if pd.isna(moment.get("TEAM_ID")) else int(moment["TEAM_ID"]), "cue": cue.model_dump(), "cue_validation": cue_check(cue)}
 
 
-def cue_check(cue: cues.OverlayCue) -> dict[str, Any] | None:
-    if not cue.source_event_ids and not cue.moment_id:
-        return None
-    return intel.validate_claims(cue.game_id, f"{cue.primary_insight} {cue.why_it_matters}", cue.source_event_ids, [cue.moment_id] if cue.moment_id else [], [cue.player_focus.player_id] if cue.player_focus else [])
+def cue_check(cue: cues.OverlayCue) -> dict[str, Any]:
+    text = " ".join([cue.primary_insight, cue.why_it_matters] + [f"{intel.shown(m.value)} {m.unit or ''}" for m in cue.supporting_metrics])
+    return intel.check_claims(cue.game_id, text, cue.source_event_ids, [cue.moment_id] if cue.moment_id else [], [cue.player_focus.player_id] if cue.player_focus else [], cue.timestep, cue.facts)
 
 
 def moments(game_id: int) -> list[dict[str, Any]]:
-    frame = intel._game("key_moments", game_id).sort_values("start_timestep")
+    frame = intel._game("key_moments", game_id)
+    frame = frame.assign(known_timestep=intel._known(frame)).sort_values("known_timestep", kind="stable")
     return frame.replace({np.nan: None}).to_dict(orient="records")
 
 
@@ -219,7 +219,7 @@ def ask_orchestrator(prompt: str) -> dict[str, Any]:
     return {"text": "\n".join(text).strip(), "envelopes": envelopes}
 
 
-def enriched_overlay(envelope: dict[str, Any]) -> dict[str, Any]:
+def enriched_overlay(envelope: dict[str, Any], moment: dict[str, Any]) -> dict[str, Any]:
     narration = envelope.get("narration") or {}
     personalized = envelope.get("personalized") or {}
     profile = envelope.get("profile") or {}
@@ -230,10 +230,21 @@ def enriched_overlay(envelope: dict[str, Any]) -> dict[str, Any]:
     if base:
         candidates.append(base)
     for overlay in candidates:
-        check = intel.validate_overlay(overlay)
-        if check["valid"]:
+        check = intel.validate_overlay(overlay, int(moment["known_timestep"]))
+        if check["valid"] and overlay.get("moment_id") == moment["moment_id"]:
             return {"overlay": overlay, "validation": check}
-    return {"overlay": None, "validation": intel.validate_overlay(candidates[0]) if candidates else {"valid": False}}
+    return {"overlay": None, "validation": intel.validate_overlay(candidates[0], int(moment["known_timestep"])) if candidates else {"valid": False}}
+
+
+def verified_text(game_id: int, moment: dict[str, Any], overlay: dict[str, Any] | None, texts: list[tuple[Any, str]]) -> tuple[str | None, str]:
+    if not overlay:
+        return None, "en"
+    events = moment["event_ids"].split(";") if isinstance(moment.get("event_ids"), str) else []
+    players = [overlay["player_id"]] if overlay.get("player_id") is not None else []
+    for text, language in texts:
+        if text and intel.check_claims(game_id, text, events, [moment["moment_id"]], players, int(moment["known_timestep"]))["valid"]:
+            return text, language
+    return overlay.get("body") or None, overlay.get("language", "en")
 
 
 async def enrich(game_id: int, moment: dict[str, Any], profile: dict[str, Any]) -> dict[str, Any]:
@@ -241,19 +252,24 @@ async def enrich(game_id: int, moment: dict[str, Any], profile: dict[str, Any]) 
     key = json.dumps([game_id, moment["moment_id"], [profile[k] for k in PROFILE_KEYS]])
     path = CACHE_DIR / f"{hashlib.sha1(key.encode()).hexdigest()[:16]}.json"
     if path.exists():
-        return {**json.loads(path.read_text(encoding="utf-8")), "cached": True}
+        cached = json.loads(path.read_text(encoding="utf-8"))
+        shown = enriched_overlay({"narration": {"overlays": [cached["overlay"]] if cached.get("overlay") else []}}, moment)
+        text, language = verified_text(game_id, moment, shown["overlay"], [(cached.get("text"), cached.get("language", "en"))])
+        return {**cached, **shown, "text": text, "language": language, "cached": True}
     async with semaphore:
-        prompt = f"Live moment. game_id={game_id} moment_id={moment['moment_id']} profile_json={json.dumps(profile)}"
+        prompt = f"Live moment. game_id={game_id} moment_id={moment['moment_id']} as_of={int(moment['known_timestep'])} profile_json={json.dumps(profile)}"
         reply = await asyncio.to_thread(ask_orchestrator, prompt)
     envelope = next((e for e in reply["envelopes"] if e.get("kind") == "live_moment"), {})
     personalized = envelope.get("personalized") or {}
     narration = envelope.get("narration") or {}
+    shown = enriched_overlay(envelope, moment)
+    text, language = verified_text(game_id, moment, shown["overlay"], [(personalized.get("text"), personalized.get("language") or "en"), (narration.get("commentary_line"), "en")])
     result = {
         "moment_id": moment["moment_id"],
-        "start_timestep": int(moment["start_timestep"]),
-        **enriched_overlay(envelope),
-        "text": personalized.get("text") or narration.get("commentary_line") or reply["text"],
-        "language": personalized.get("language") or "en",
+        "start_timestep": int(moment["known_timestep"]),
+        **shown,
+        "text": text,
+        "language": language,
         "handoffs": envelope.get("handoffs", []),
         "fallbacks": envelope.get("fallbacks", ["orchestrator_did_not_call_live_moment"] if not envelope else []),
     }
@@ -278,7 +294,7 @@ async def stream(request: Request) -> StreamingResponse:
     enrich_on = ENRICH and params.get("enrich", "1") == "1"
     profile = profile_from(params)
     steps = tracks()[game_id]["steps"]
-    pending = [m for m in moments(game_id) if m["start_timestep"] >= position and cues.wanted(m["moment_type"], profile)]
+    pending = [m for m in moments(game_id) if m["known_timestep"] >= position and cues.wanted(m["moment_type"], profile)]
     extra = sorted((cues.weighted(c, profile) for c in cues.derived_cues(game_id, profile, tracks(), running_stats(game_id)) + valuation.money_cues(game_id, profile, steps) if c.timestep >= position and cues.wanted(c.event_type, profile)), key=lambda c: c.timestep)
 
     async def events():
@@ -288,7 +304,8 @@ async def stream(request: Request) -> StreamingResponse:
         async def run(moment: dict[str, Any]) -> None:
             await queue.put(("enriching", {"moment_id": moment["moment_id"]}))
             try:
-                await queue.put(("enriched", await enrich(game_id, moment, profile)))
+                result = await enrich(game_id, moment, profile)
+                await queue.put(("enriched", result) if result["overlay"] else ("enrich_failed", {"moment_id": moment["moment_id"], "error": "validation_failed"}))
             except Exception as error:
                 log.warning("enrichment failed for %s: %s", moment["moment_id"], error)
                 await queue.put(("enrich_failed", {"moment_id": moment["moment_id"], "error": type(error).__name__}))
@@ -297,9 +314,13 @@ async def stream(request: Request) -> StreamingResponse:
         yield sse("start", {"game_id": game_id, "speed": speed, "profile": profile, "enrich": enrich_on, "steps": steps})
         while position < steps:
             yield sse("frame", frame_at(game_id, int(position)))
-            while pending and pending[0]["start_timestep"] <= position:
+            while pending and pending[0]["known_timestep"] <= position:
                 moment = pending.pop(0)
-                yield sse("moment", instant_overlay(moment, profile))
+                shown = instant_overlay(moment, profile)
+                if not (shown["validation"]["valid"] and shown["cue_validation"]["valid"]):
+                    log.warning("dropped %s: failed validation", moment["moment_id"])
+                    continue
+                yield sse("moment", shown)
                 if enrich_on and moment["importance"] >= ENRICH_MIN_IMPORTANCE:
                     task = asyncio.create_task(run(moment))
                     tasks.add(task)
@@ -308,7 +329,11 @@ async def stream(request: Request) -> StreamingResponse:
                     task.add_done_callback(background.discard)
             while extra and extra[0].timestep <= position:
                 cue = extra.pop(0)
-                yield sse("cue", {"cue": cue.model_dump(), "cue_validation": cue_check(cue)})
+                check = cue_check(cue)
+                if check["valid"]:
+                    yield sse("cue", {"cue": cue.model_dump(), "cue_validation": check})
+                else:
+                    log.warning("dropped %s cue %s: failed validation", cue.event_type, cue.event_id)
             while not queue.empty():
                 yield sse(*queue.get_nowait())
             await asyncio.sleep(TICK_S)
@@ -335,7 +360,8 @@ async def ask(request: Request) -> JSONResponse:
     if not question.strip():
         return JSONResponse({"error": "empty question"}, status_code=400)
     style = f"Viewer type: {profile['persona']}. Answer depth: {body.get('depth', 'balanced')}. Tone: {body.get('tone', 'neutral')}. {commentary.interest_line(profile['interests'])}" + (" Lead with tactics." if body.get("tactical") else "")
-    prompt = f"Fan question during game_id={game_id} at timestep={timestep} ({match_clock(timestep)}). profile_json={json.dumps(agent_profile(profile))}\n{style}\nQuestion: {question}"
+    route = f"Match recap: call match_recap with game_id={game_id} and as_of={timestep}.\n" if body.get("action") == "recap" else ""
+    prompt = f"Fan question during game_id={game_id} at timestep={timestep} ({match_clock(timestep)}); pass as_of={timestep} to every tool. profile_json={json.dumps(agent_profile(profile))}\n{style}\n{route}Question: {question}"
     try:
         reply = await asyncio.to_thread(ask_orchestrator, prompt)
     except BudgetExceeded:
@@ -345,9 +371,9 @@ async def ask(request: Request) -> JSONResponse:
         return JSONResponse({"error": type(error).__name__}, status_code=502)
     text = reply["text"]
     claim = text.split("Evidence:")[0].strip()
-    check = intel.validate_claims(game_id, claim, EVENT_ID.findall(text), MOMENT_ID.findall(text), [p for p in (profile["favorite_player_id"],) if p is not None])
+    check = intel.validate_claims(game_id, claim, EVENT_ID.findall(text), MOMENT_ID.findall(text), [p for p in (profile["favorite_player_id"],) if p is not None], timestep)
     fallbacks = [f for e in reply["envelopes"] for f in e.get("fallbacks", [])]
-    return JSONResponse({"answer": text, "verified": check["valid"], "validation": check, "fallbacks": fallbacks})
+    return JSONResponse({"answer": claim, "evidence": MOMENT_ID.findall(text) + EVENT_ID.findall(text), "verified": check["valid"], "validation": check, "fallbacks": fallbacks})
 
 
 feedback_log: deque[dict[str, Any]] = deque(maxlen=500)

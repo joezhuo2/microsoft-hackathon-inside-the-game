@@ -13,7 +13,7 @@ from . import mcp_server as intel
 from .match_intelligence import match_clock
 from .overlay_cues import band, interests, why_it_matters
 
-Action = Literal["explain_more", "show_tactics", "focus_player", "simpler", "numbers", "why", "question"]
+Action = Literal["explain_more", "show_tactics", "focus_player", "simpler", "numbers", "why", "recap", "question"]
 Depth = Literal["headlines", "balanced", "deep"]
 Tone = Literal["neutral", "emotional"]
 FeedbackKind = Literal["too_basic", "too_technical", "more_tactical", "more_emotional", "follow_player"]
@@ -22,6 +22,8 @@ DEPTHS: list[Depth] = ["headlines", "balanced", "deep"]
 OBSERVED_LIMIT: dict[Depth, int] = {"headlines": 2, "balanced": 3, "deep": 5}
 RECENT_MOMENT_WINDOW = 600
 TREND_WINDOW = 600
+HALF_TIME = 1500
+RECAP_MOMENTS_PER_HALF = 2
 PLAIN = {"casual", "newcomer"}
 EVENT_WORDS = {
     "pass_attempt": "completed a pass", "incomplete_pass_candidate": "misplaced a pass", "shot_candidate": "shot",
@@ -30,6 +32,7 @@ EVENT_WORDS = {
     "clearance_candidate": "cleared", "goal_candidate": "scored",
 }
 INTENTS: list[tuple[Action, re.Pattern[str]]] = [
+    ("recap", re.compile(r"recap|summary|summari[sz]e|how did the (match|game) go", re.I)),
     ("why", re.compile(r"\bwhy\b|matter|important", re.I)),
     ("show_tactics", re.compile(r"tactic|press|shape|control|chaos|formation|possession|territory", re.I)),
     ("numbers", re.compile(r"number|stat|how many|how much|percent|%|speed", re.I)),
@@ -160,30 +163,27 @@ def _club(team: Any) -> str:
 
 
 def _current_moment(game_id: int, timestep: int, moment_id: str | None) -> dict[str, Any] | None:
-    moments = intel._game("key_moments", game_id)
+    moments = intel._game("key_moments", game_id, timestep)
     if moments.empty:
         return None
     if moment_id:
         row = moments[moments["moment_id"] == moment_id]
         if len(row):
             return row.replace({np.nan: None}).iloc[0].to_dict()
-    recent = moments[(moments["start_timestep"] <= timestep) & (moments["start_timestep"] >= timestep - RECENT_MOMENT_WINDOW)]
+    recent = moments[intel._known(moments) >= timestep - RECENT_MOMENT_WINDOW]
     if recent.empty:
         return None
     return recent.sort_values(["importance", "start_timestep"]).replace({np.nan: None}).iloc[-1].to_dict()
 
 
 def _rhythm(game_id: int, timestep: int) -> dict[str, Any] | None:
-    rhythm = intel._game("match_rhythm", game_id)
-    if rhythm.empty:
-        return None
-    window = rhythm[rhythm["start_timestep"] <= timestep].tail(1)
+    window = intel._game("match_rhythm", game_id, timestep).tail(1)
     return None if window.empty else window.iloc[0].to_dict()
 
 
 def _event_lines(game_id: int, event_ids: list[str], timestep: int) -> list[tuple[str, str]]:
-    events = intel._game("events", game_id)
-    rows = events[events["event_id"].isin(event_ids) & (events["start_timestep"] <= timestep)].sort_values("start_timestep")
+    events = intel._game("events", game_id, timestep)
+    rows = events[events["event_id"].isin(event_ids)].sort_values("start_timestep")
     lines = []
     for _, event in rows.iterrows():
         who = intel._name(event["PLAYER_ID"]) or _club(event["TEAM_ID"])
@@ -195,8 +195,8 @@ def _event_lines(game_id: int, event_ids: list[str], timestep: int) -> list[tupl
 
 
 def _player_so_far(game_id: int, player_id: int, timestep: int) -> dict[str, int]:
-    events = intel._game("events", game_id)
-    mine = events[(events["PLAYER_ID"] == player_id) & (events["start_timestep"] <= timestep)]
+    events = intel._game("events", game_id, timestep)
+    mine = events[events["PLAYER_ID"] == player_id]
     recent = mine[mine["start_timestep"] > timestep - TREND_WINDOW]
     def count(frame: pd.DataFrame, kind: str) -> int:
         return int((frame["event_type"] == kind).sum())
@@ -223,10 +223,43 @@ def _quick_replies(action: Action, prefs: ViewerPreferences, moment: dict[str, A
     return list(dict.fromkeys(options))[:4]
 
 
+def _moment_line(moment: dict[str, Any]) -> str:
+    name = intel._name(moment.get("PLAYER_ID"))
+    if moment["moment_type"] == "goal":
+        return f"{match_clock(moment['known_timestep'])} Goal, {_club(moment.get('TEAM_ID'))}" + (f" ({name})" if name else "") + f": {json.loads(moment['metrics']).get('score_after', '')}"
+    return f"{match_clock(moment['known_timestep'])} " + (f"{name}: {moment['fact_hint']}" if name else moment["fact_hint"])
+
+
+def _recap(game_id: int, timestep: int, prefs: ViewerPreferences, stats: dict[str, list[int]], question: str | None) -> CommentaryResponse:
+    clubs = intel._roster()["clubs"]
+    short = [clubs.get("0", {}).get("short", "Home"), clubs.get("1", {}).get("short", "Away")]
+    moments = intel._game("key_moments", game_id, timestep)
+    moments = moments.assign(known_timestep=intel._known(moments)).replace({np.nan: None})
+    goals = [m for m in moments.to_dict(orient="records") if m["moment_type"] == "goal"]
+    others = moments[moments["moment_type"] != "goal"]
+    key = [m for half in (others[others["known_timestep"] < HALF_TIME], others[others["known_timestep"] >= HALF_TIME]) for m in half.sort_values(["importance", "known_timestep"], ascending=False).head(RECAP_MOMENTS_PER_HALF).sort_values("known_timestep").to_dict(orient="records")]
+    home, away = (int(part) for part in intel._score_at(game_id, timestep).split("-"))
+    final = timestep >= intel._match_end(game_id)
+    possession, shots, passes, accuracy = stats.get("possession", [50, 50]), stats.get("shots", [0, 0]), stats.get("passes", [0, 0]), stats.get("pass_accuracy", [0, 0])
+    leader = None if home == away else short[0] if home > away else short[1]
+    state = (f"{leader} won {max(home, away)}-{min(home, away)}." if final else f"{leader} lead {max(home, away)}-{min(home, away)}.") if leader else f"Level at {home}-{away}."
+    ball = short[0] if possession[0] > possession[1] else short[1] if possession[1] > possession[0] else None
+    return CommentaryResponse(
+        response_id=uuid.uuid4().hex[:12], game_id=game_id, timestep=timestep, match_clock=match_clock(timestep), action="recap", question=question,
+        headline=f"{'Full time' if final else 'So far'}: {short[0]} {home}-{away} {short[1]}",
+        observed=[_moment_line(m) for m in goals] + [_moment_line(m) for m in key] + [f"Possession {possession[0]}% {short[0]} to {possession[1]}% {short[1]}", f"Shots {shots[0]} to {shots[1]}, passes {passes[0]} to {passes[1]}", f"Pass accuracy {accuracy[0]}% to {accuracy[1]}%"],
+        interpretation=state + (f" {ball} had more of the ball." if ball else " Possession was even."),
+        context_trail=[TrailItem(kind="moment", id=m["moment_id"], label=_moment_line(m)) for m in goals + key] + [TrailItem(kind="metric", id=k, label=k.replace("_", " ")) for k in ("possession", "shots", "passes", "pass_accuracy")],
+        quick_replies=_quick_replies("recap", prefs, None), depth=prefs.depth, tone=prefs.tone,
+    )
+
+
 def respond(game_id: int, timestep: int, prefs: ViewerPreferences, stats: dict[str, list[int]], action: Action, question: str | None = None, moment_id: str | None = None, player_id: int | None = None) -> CommentaryResponse:
     if action == "question" and question:
         player_id = player_id or _player_in_question(question)
         action = "focus_player" if player_id is not None else detect_action(question)
+    if action == "recap":
+        return _recap(game_id, timestep, prefs, stats, question)
     moment = _current_moment(game_id, timestep, moment_id)
     rhythm = _rhythm(game_id, timestep)
     plain = prefs.persona in PLAIN or prefs.depth == "headlines"
