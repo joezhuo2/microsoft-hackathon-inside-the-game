@@ -204,3 +204,37 @@ def test_profile_from_derives_persona_from_interests():
     profile = replay.profile_from({"persona": "analyst", "interests": "money:90"})
     assert profile["persona"] == "money" and profile["interests"]["money"] == 90
     assert replay.agent_profile(profile)["interests"] == {"speed": "Into it", "passing": "Into it", "pressure": "Into it", "possession": "Into it", "money": "Obsessed"}
+
+
+def test_instant_overlay_marker_category_follows_precedence(tmp_path, monkeypatch):
+    _setup(tmp_path, monkeypatch)
+    goal = replay.moments(0)[0]
+    assert replay.instant_overlay(goal, {"favorite_player_id": 9})["marker"] == {"category": "turning_point", "t": 12, "clock": replay.match_clock(12)}
+    passing = {**goal, "moment_type": "key_pass", "metrics": json.dumps({"ball_travel_m": 30.0}), "fact_hint": "Key pass"}
+    assert replay.instant_overlay(passing, {"favorite_player_id": 9})["marker"]["category"] == "player"
+    assert replay.instant_overlay({**passing, "PLAYER_ID": 0}, {"favorite_player_id": 0})["marker"]["category"] == "player"
+    assert replay.instant_overlay(passing, {"favorite_player_id": None})["marker"]["category"] == "supporting"
+
+
+def test_stream_replays_moments_from_start_and_lists_marker_types(tmp_path, monkeypatch):
+    import numpy as np
+    from starlette.testclient import TestClient
+
+    from football_analytics import overlay_cues as cues
+
+    _setup(tmp_path, monkeypatch)
+    steps = 30
+    monkeypatch.setattr(replay, "tracks", lambda: {0: {"ids": [-1], "xy": np.zeros((steps, 1, 2)), "score": np.zeros((steps, 2), dtype=int), "steps": steps}})
+    monkeypatch.setattr(replay, "running_stats", lambda game_id: {"possession": np.full((steps, 2), 50.0)})
+    monkeypatch.setattr(cues, "derived_cues", lambda *args: [])
+    monkeypatch.setattr(replay.valuation, "money_cues", lambda *args: [])
+
+    def events(query):
+        body = TestClient(replay.app).get(f"/api/stream?game=0&speed=120&enrich=0&{query}").text
+        return [(block.split("\n")[0][7:], json.loads(block.split("\n")[1][6:])) for block in body.strip().split("\n\n")]
+
+    rewound = events("start=2&interests=passing:0")
+    assert [data["marker"]["t"] for kind, data in rewound if kind == "moment"] == [12]
+    types = next(data for kind, data in rewound if kind == "start")["marker_types"]
+    assert "goal" in types and "key_pass" not in types
+    assert not [data for kind, data in events("start=13") if kind == "moment"]

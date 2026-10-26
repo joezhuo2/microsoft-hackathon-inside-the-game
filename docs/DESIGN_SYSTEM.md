@@ -24,6 +24,8 @@ Core tokens from the `:root` block of `style.css`:
 
 These are the only custom properties declared in `:root`. `--accent` is not declared there. It is set per cue by `app.js` (`box.style.setProperty("--accent", ...)`), and CSS reads it as `var(--accent, #fff)`, so `#fff` is the fallback.
 
+The timeline declares `--turning: #fbbf24` (turning point diamond, 12px, glow) and `--yours: #22d3ee` (your player diamond, 10px, white ring); supporting diamonds are 7px hollow `var(--muted)`. Size and outline differ as well as colour, and a legend labels all three.
+
 The frame style (`.frame`) combines a 1px `var(--edge)` border, a dark outer ring, a 22px faint white outer glow and an inset glow. The `.frame::before` and `.frame::after` pseudo-elements draw two short accent-coloured bars on opposite corners (top left, 34% wide, and bottom right, 28% wide), each with `drop-shadow(0 0 6px var(--accent, #fff))`. The accent is the only colour in the frame.
 
 Tags (`.tag`) are white with black uppercase text. `.tag.ghost` and `.tag.warn` are outline-only.
@@ -90,7 +92,7 @@ The overlay is a transparent full-screen window. Only elements marked `data-hit`
 
 How it works, from `overlay/ui/app.js` and `overlay/src-tauri/src/main.rs`:
 
-- `index.html` marks the interactive surfaces with `data-hit`: `#dockBtn`, `#panel`, `#askBtn`, `#askPanel`, `#valueBtn`, `#valuePanel`, `#studio` (producer controls), `#history` (Recent cues) and `#onboard`.
+- `index.html` marks the interactive surfaces with `data-hit`: `#dockBtn`, `#panel`, `#askBtn`, `#askPanel`, `#valueBtn`, `#valuePanel`, `#studio` (producer controls), `#history` (Recent cues), `#timeline` (timeline bar and its diamonds) and `#onboard`.
 - `reportHitRegions()` in `app.js` collects the bounding rectangles of every `[data-hit]` element that has a non-zero size. It sends them to Rust with `set_hit_regions` only when the list has changed.
 - In `main.rs`, the window starts with `set_ignore_cursor_events(true)`. A background thread checks the cursor every 30 ms. It stops ignoring events only when the cursor is inside one of the reported rectangles.
 - `Ctrl+Shift+O` toggles a lock (`LOCKED`). When locked, the whole overlay is click-through and a `click-through` event is emitted. `app.js` then adds `body.locked`, which hides `#dock` (`body.locked #dock { opacity: 0; pointer-events: none; visibility: hidden; }`), which also removes the controls from the tab order. The on-screen hint reads "Ctrl+Shift+O hides controls".
@@ -113,8 +115,8 @@ So all keyframe animations stop. The moment alert, cue chips, feed items and spl
 `@media (max-width: 900px)` switches the overlay to a single column:
 
 - `html, body` allow scrolling (`overflow: auto; height: auto;`). Body becomes a flex column with `gap: 22px` and `padding: 16px`.
-- `#scorebar, #dock, #alert, #cam, #feed, #tiles, #lane` become `position: static`, lose their transforms, and take `width: 100%`.
-- A fixed order is set: scorebar 1, lane 2, alert 2 (with `margin-top: 18px`), cam 3, tiles 4, feed 5, dock 6, studio 7.
+- `#scorebar, #dock, #alert, #cam, #feed, #tiles, #timeline, #lane` become `position: static`, lose their transforms, and take `width: 100%`.
+- A fixed order is set: scorebar 1, lane 2, alert 2 (with `margin-top: 18px`), cam 3, tiles 4, timeline 4 (after tiles), feed 5, dock 6, studio 7.
 - `#alert:not(.show)` is hidden.
 - `#studio` becomes static full width with no max height.
 - `.stat-wrap { flex: 1 1 140px; }` lets stat tiles wrap.

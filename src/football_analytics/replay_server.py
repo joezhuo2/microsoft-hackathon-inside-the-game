@@ -45,6 +45,7 @@ PROFILE_KEYS = ("persona", "language", "favorite_club_id", "favorite_player_id",
 MOMENT_ID = re.compile(r"\bM\d+-\d{4}\b")
 EVENT_ID = re.compile(r"\b\d+-\d{6}\b")
 TEMPLATES = {"goal": "lower_third", "shot": "stat_card", "key_pass": "stat_card", "top_speed": "player_tag", "press_escape": "player_tag", "high_turnover": "stat_card", "momentum_shift": "momentum_bar", "rhythm_change": "momentum_bar", "sustained_build_up": "stat_card"}
+TURNING_POINTS = ("goal", "momentum_shift")
 RATE_LIMITED = {"state": "rate_limited", "message": "AI analysis is rate-limited this hour; instant cues keep coming."}
 
 log = logging.getLogger("replay")
@@ -149,7 +150,9 @@ def instant_overlay(moment: dict[str, Any], profile: dict[str, Any] | None = Non
         "stats": stats[:4],
     }
     cue = cues.moment_cue(moment, overlay["stats"], profile or {})
-    return {"overlay": overlay, "validation": intel.validate_overlay(overlay), "moment_type": kind, "importance": float(moment["importance"]), "team_id": None if pd.isna(moment.get("TEAM_ID")) else int(moment["TEAM_ID"]), "cue": cue.model_dump(), "cue_validation": cue_check(cue)}
+    favourite = (profile or {}).get("favorite_player_id")
+    category = "turning_point" if kind in TURNING_POINTS else "player" if favourite is not None and player_id == favourite else "supporting"
+    return {"marker": {"category": category, "t": known, "clock": match_clock(known)}, "overlay": overlay, "validation": intel.validate_overlay(overlay), "moment_type": kind, "importance": float(moment["importance"]), "team_id": None if pd.isna(moment.get("TEAM_ID")) else int(moment["TEAM_ID"]), "cue": cue.model_dump(), "cue_validation": cue_check(cue)}
 
 
 def cue_check(cue: cues.OverlayCue) -> dict[str, Any]:
@@ -349,7 +352,7 @@ async def stream(request: Request) -> StreamingResponse:
 
         yield sse("status", {"state": "loading", "message": "Loading match data…"})
         steps, pending, extra = await asyncio.to_thread(replay_plan, game_id, position, profile)
-        yield sse("start", {"game_id": game_id, "speed": speed, "profile": profile, "enrich": enrich_on, "steps": steps})
+        yield sse("start", {"game_id": game_id, "speed": speed, "profile": profile, "enrich": enrich_on, "steps": steps, "marker_types": [k for k in cues.THEME_BY_MOMENT if cues.wanted(k, profile)]})
         while position < steps:
             yield sse("frame", frame_at(game_id, int(position)))
             while pending and pending[0]["known_timestep"] <= position:

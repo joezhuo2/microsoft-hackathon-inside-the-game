@@ -287,7 +287,7 @@ input[type="checkbox"] { accent-color: #fff; }
 .dot.fav { border: 2px solid #fff; background: transparent; box-shadow: 0 0 6px #fff; }
 
 /* AI feed, styled as the chat box */
-#studio { position: fixed; left: 18px; bottom: 88px; width: 380px; max-height: 42vh; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+#studio { position: fixed; left: 18px; bottom: 116px; width: 380px; max-height: 42vh; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
 #studio[hidden] { display: none; }
 .s-controls { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; font-size: 11px; }
 .s-controls label { flex-direction: row; align-items: center; gap: 6px; }
@@ -324,7 +324,7 @@ body.studio #cam { top: 18px; }
 .dots::after { content: "…"; animation: dots 1.2s steps(4) infinite; display: inline-block; width: 1.2em; overflow: hidden; vertical-align: bottom; }
 
 /* stat tiles */
-#tiles { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; width: max-content; max-width: calc(100vw - 36px); }
+#tiles { position: fixed; left: 50%; bottom: 46px; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; width: max-content; max-width: calc(100vw - 36px); }
 .stat { display: flex; align-items: center; gap: 12px; padding: 5px 16px 5px 5px; }
 .stat .label { white-space: nowrap; font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
 .stat .values { display: flex; align-items: baseline; gap: 8px; font-size: 20px; font-weight: 300; text-shadow: var(--glow); }
@@ -335,6 +335,26 @@ body.studio #cam { top: 18px; }
 .stat-wrap { display: grid; grid-template-columns: 0fr; opacity: 0; transition: grid-template-columns 0.45s var(--ease), opacity 0.35s var(--ease); }
 .stat-wrap.in { grid-template-columns: 1fr; opacity: 1; flex: none; }
 .stat-wrap > div { min-width: 0; overflow: hidden; }
+
+/* timeline */
+:root { --turning: #fbbf24; --yours: #22d3ee; }
+#timeline { position: fixed; left: 18px; right: 18px; bottom: 8px; display: flex; align-items: center; gap: 12px; padding: 2px 12px; font-size: 11px; color: var(--muted); }
+#tlClock { min-width: 3.2em; color: var(--text); }
+.tl-track { position: relative; flex: 1 1 200px; height: 3px; background: rgba(255, 255, 255, 0.12); }
+#tlFill { height: 100%; width: 0; background: rgba(255, 255, 255, 0.55); transition: width 0.3s linear; }
+#tlMarks .dm { position: absolute; top: 50%; margin: -11px 0 0 -11px; cursor: pointer; }
+.dm { display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; background: none; vertical-align: middle; }
+.dm::before { content: ""; width: var(--s); height: var(--s); background: var(--c); transform: rotate(45deg); transition: transform 0.2s var(--ease); }
+.dm:hover::before, .dm:focus-visible::before { transform: rotate(45deg) scale(1.35); }
+.dm.turning_point { --c: var(--turning); --s: 12px; z-index: 3; }
+.dm.turning_point::before { box-shadow: 0 0 8px var(--turning); }
+.dm.player { --c: var(--yours); --s: 10px; z-index: 2; }
+.dm.player::before { box-shadow: 0 0 0 1.5px #fff; }
+.dm.supporting { --c: transparent; --s: 7px; }
+.dm.supporting::before { box-shadow: inset 0 0 0 1.5px var(--muted); }
+.tl-legend { display: flex; gap: 10px; white-space: nowrap; }
+.tl-legend span { display: flex; align-items: center; }
+.tl-legend .dm { width: 16px; height: 16px; }
 
 /* splash */
 #splash { position: fixed; inset: 0; display: grid; place-items: center; pointer-events: none; opacity: 0; transition: opacity 0.6s var(--ease); }
@@ -383,13 +403,14 @@ body.studio #cam { top: 18px; }
 @media (max-width: 900px) {
   html, body { overflow: auto; height: auto; }
   body { display: flex; flex-direction: column; gap: 22px; padding: 16px; }
-  #scorebar, #dock, #alert, #cam, #feed, #tiles, #lane { position: static; transform: none; width: 100%; max-height: none; }
+  #scorebar, #dock, #alert, #cam, #feed, #tiles, #timeline, #lane { position: static; transform: none; width: 100%; max-height: none; }
   #lane { order: 2; }
   #scorebar { order: 1; flex-wrap: wrap; justify-content: center; white-space: normal; }
   #alert { order: 2; margin-top: 18px; }
   #alert:not(.show) { display: none; }
   #cam { order: 3; }
   #tiles { order: 4; flex-wrap: wrap; }
+  #timeline { order: 4; flex-wrap: wrap; }
   #feed { order: 5; }
   #studio { order: 7; position: static; width: 100%; max-height: none; }
   #dock { order: 6; }
