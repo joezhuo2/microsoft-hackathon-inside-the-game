@@ -36,7 +36,6 @@ const MAX_CHIPS = 2;
 const PREF_KEY = "match-prefs";
 const DEPTH_PRIORITIES = { headlines: ["high"], balanced: ["high", "medium"], deep: ["high", "medium", "low"] };
 const ACTION_QUESTIONS = { explain_more: "Explain more", show_tactics: "Show tactics", simpler: "Make it simpler", numbers: "Give me the numbers", why: "Why did this matter?", recap: "Give me the match recap." };
-const REPLY_ACTIONS = Object.fromEntries(Object.entries(ACTION_QUESTIONS).map(([action, text]) => [text, action]));
 const FEEDBACK = [["too_basic", "Too basic"], ["too_technical", "Too technical"], ["more_tactical", "More tactical"], ["more_emotional", "More emotional"], ["follow_player", "Follow this player"]];
 const I18N_KEYS = ["Kick off", "Half time", "Second half", "Full time", "Match recap", "Goal threat", "Momentum shift", "Player spotlight", "Tactical reset", "Money move", "Why did this matter?", "Show tactics", "Give me the numbers", "Make it simpler", "Explain more", "Focus on", "Too basic", "Too technical", "More tactical", "More emotional", "Follow this player", "Observed", "Interpretation", "Projection"];
 const I18N = Object.fromEntries(Object.entries({
@@ -836,7 +835,6 @@ function renderCommentary(r, note) {
     section("Interpretation", rev("p", r.interpretation)),
     r.projection ? section("Projection", rev("p", r.projection)) : null,
     el("div", { class: "trail" }, r.context_trail.map((t) => el("span", { class: "tag ghost", title: t.kind }, t.label))),
-    el("div", { class: "replies" }, r.quick_replies.map((q) => el("button", { type: "button", "data-reply": q }, tr(q)))),
     el("div", { class: "replies" }, FEEDBACK.map(([kind, text]) => el("button", { type: "button", "data-feedback": kind }, tr(text)))),
     note ? el("p", { class: "note" }, note) : null,
   ].flat().filter(Boolean));
@@ -1009,19 +1007,9 @@ async function init() {
   setInterval(maybeRefreshValue, 1000);
   $("focusBtn").onclick = () => askMatch("focus_player", null, playerId());
   $("recapBtn").onclick = () => askMatch("recap");
-  $("askChips").onclick = (e) => {
-    if (e.target.closest("[data-value]")) return setValue(true);
-    const action = e.target.closest("[data-action]")?.dataset.action;
-    if (action) askMatch(action, null, action === "focus_player" ? playerId() : null);
-  };
   $("commentary").onclick = (e) => {
-    const reply = e.target.closest("[data-reply]")?.dataset.reply;
     const kind = e.target.closest("[data-feedback]")?.dataset.feedback;
-    if (kind) return sendFeedback(kind);
-    if (!reply) return;
-    const named = Object.keys(state.roster.players).find((id) => reply === `Focus on ${state.roster.players[id].short}`);
-    if (reply.startsWith("Focus on ")) return askMatch("focus_player", null, named == null ? state.last?.player_id ?? null : Number(named));
-    askMatch(REPLY_ACTIONS[reply] || "question", REPLY_ACTIONS[reply] ? null : reply);
+    if (kind) sendFeedback(kind);
   };
   $("ask").onsubmit = (e) => {
     e.preventDefault();

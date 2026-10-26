@@ -50,15 +50,6 @@
     </button>
     <div id="askWrap" class="collapse">
       <section id="askPanel" class="frame" data-hit>
-        <div class="replies" id="askChips">
-          <button type="button" data-action="explain_more">Explain more</button>
-          <button type="button" data-action="show_tactics">Show tactics</button>
-          <button type="button" data-action="focus_player">Focus on player</button>
-          <button type="button" data-action="simpler">Make it simpler</button>
-          <button type="button" data-action="numbers">Give me the numbers</button>
-          <button type="button" data-action="why">Why did this matter?</button>
-          <button type="button" data-value>Why are they paid that?</button>
-        </div>
         <form id="ask">
           <input id="question" placeholder="Ask about the match…" autocomplete="off" maxlength="500">
           <button aria-label="Ask">Ask</button>
@@ -106,7 +97,7 @@
 
   <section id="feed" class="frame" aria-live="polite">
     <div class="feed-head"><span class="icon" data-icon="spark"></span>AI analysis<span class="tag ghost" id="feedLang">EN</span></div>
-    <div id="feedList"></div>
+    <div id="feedList" data-hit tabindex="0" role="log" aria-label="AI analysis"></div>
     <details id="history" data-hit open><summary>Recent cues</summary><ol id="historyList" aria-live="off"></ol></details>
   </section>
 
