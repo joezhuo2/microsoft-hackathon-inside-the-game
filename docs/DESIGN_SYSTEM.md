@@ -90,10 +90,10 @@ The overlay is a transparent full-screen window. Only elements marked `data-hit`
 
 How it works, from `overlay/ui/app.js` and `overlay/src-tauri/src/main.rs`:
 
-- `index.html` marks the interactive surfaces with `data-hit`: `#dockBtn`, `#panel`, `#askBtn`, `#askPanel` and `#onboard`.
+- `index.html` marks the interactive surfaces with `data-hit`: `#dockBtn`, `#panel`, `#askBtn`, `#askPanel`, `#valueBtn`, `#valuePanel`, `#studio` (producer controls), `#history` (Recent cues) and `#onboard`.
 - `reportHitRegions()` in `app.js` collects the bounding rectangles of every `[data-hit]` element that has a non-zero size. It sends them to Rust with `set_hit_regions` only when the list has changed.
 - In `main.rs`, the window starts with `set_ignore_cursor_events(true)`. A background thread checks the cursor every 30 ms. It stops ignoring events only when the cursor is inside one of the reported rectangles.
-- `Ctrl+Shift+O` toggles a lock (`LOCKED`). When locked, the whole overlay is click-through and a `click-through` event is emitted. `app.js` then adds `body.locked`, which hides `#dock` (`body.locked #dock { opacity: 0; pointer-events: none; }`). The on-screen hint reads "Ctrl+Shift+O hides controls".
+- `Ctrl+Shift+O` toggles a lock (`LOCKED`). When locked, the whole overlay is click-through and a `click-through` event is emitted. `app.js` then adds `body.locked`, which hides `#dock` (`body.locked #dock { opacity: 0; pointer-events: none; visibility: hidden; }`), which also removes the controls from the tab order. The on-screen hint reads "Ctrl+Shift+O hides controls".
 - `#lane` and `#splash` set `pointer-events: none`.
 - Outside the Tauri build, `body:not(.tauri) .tauri-only { display: none; }` hides elements with the `tauri-only` class, including the Ctrl+Shift+O hint. The plain web build has no click-through.
 

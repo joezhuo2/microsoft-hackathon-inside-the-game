@@ -35,6 +35,13 @@ Start the replay server and open the overlay in a browser (`/` for the overlay, 
 - [ ] Start closes the onboarding dialog.
 - [ ] Moving a Match centre dial below 20 stops that stat's cues after the stream reconnects.
 - [ ] After closing the onboarding dialog, reloading the page does not show it again (`match-onboarded` in localStorage).
+- [ ] On first load, focus moves into the onboarding dialog, Tab stays inside it, Escape or Start closes it and focus lands on Match centre.
+- [ ] After reload, the Language, Club and Player picks are restored and the replay does not start before Start on a first visit.
+- [ ] While paused, changing game, speed, dials or Restart keeps the replay paused; Resume applies the changes.
+- [ ] Changing game mid-alert clears the alert, splash, pending answer and value request from the old game.
+- [ ] Tab does not reach controls inside closed panels or the dock hidden with Ctrl+Shift+O.
+- [ ] Recent cues under the AI analysis feed lists the last 10 aired cues, newest first, and can be collapsed.
+- [ ] With player Tomas Ellery (id 0) selected, Player focus and Focus on player answer about Ellery; a Focus on [name] reply answers about that player.
 - [ ] The Kick off splash appears when the replay starts.
 - [ ] The Half time splash appears at the half time point, followed by the Second half splash.
 - [ ] The Full time splash appears at the end of the match, followed by the Match recap splash.
@@ -49,6 +56,6 @@ Start the replay server and open the overlay in a browser (`/` for the overlay, 
 - [ ] The producer view shows Air and Drop buttons on queued cues, and each changes the cue state (Air becomes On air, Drop becomes Dropped).
 - [ ] With the system setting for reduced motion on, cue alerts, splashes and feed items do not slide, blur or pulse.
 - [ ] In the Tauri build, clicks on empty desktop areas outside the overlay controls reach the desktop.
-- [ ] In the Tauri build, clicks on the Match centre, Ask the match and onboarding controls work.
+- [ ] In the Tauri build, clicks on the Match centre, Ask the match, producer queue, Recent cues and onboarding controls work.
 - [ ] In the Tauri build, Ctrl+Shift+O hides the dock and makes the whole overlay click-through.
 - [ ] The hosted demo loads at https://ca-match-replay-cons.blackocean-5801654c.norwayeast.azurecontainerapps.io

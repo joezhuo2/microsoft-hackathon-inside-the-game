@@ -60,6 +60,13 @@ def test_recap_question_builds_whole_match_recap(tmp_path, monkeypatch):
     assert c.respond(0, 40, c.ViewerPreferences(), STATS, "recap").headline == "So far: HOM 0-0 AWY"
 
 
+def test_player_zero_is_a_real_selection(tmp_path, monkeypatch):
+    _setup(tmp_path, monkeypatch)
+    prefs = c.ViewerPreferences(favorite_player_id=9)
+    assert c.respond(0, 100, prefs, STATS, "focus_player", player_id=0).player_id == 0
+    assert c.respond(0, 100, prefs, STATS, "question", "How is Moreau doing?", player_id=0).player_id == 0
+
+
 def test_detect_action():
     assert c.detect_action("give me a summary") == "recap"
     assert c.detect_action("Why did that matter?") == "why"
