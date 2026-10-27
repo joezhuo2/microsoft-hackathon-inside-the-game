@@ -1,0 +1,29 @@
+# Conservative defaults. No physical units are inferred from the CSV.
+input_file: null
+output_dir: output
+seconds_per_frame: null
+coordinate_scale_to_metre: null
+max_contiguous_gap_frames: 1
+expected_players_per_frame: 22
+movement:
+  stationary_epsilon: 0.000001
+  smoothing_window_frames: 1
+possession:
+  on_ball_true_values: [1, "1", true, "true", "True", "TRUE", yes, "YES"]
+  on_ball_false_values: [0, "0", false, "false", "False", "FALSE", no, "NO"]
+events:
+  min_pass_distance_native: 2.0
+  min_carry_distance_native: 1.5
+  progressive_distance_native: 5.0
+pitch:
+  # Examples only: specify directions after verifying coordinate orientation and half changes.
+  attacking_direction_by_team: {}
+  goal_centres_native_by_team: {}
+  goal_posts_native_by_team: {}
+  bounds_native: null
+pitch_control:
+  max_speed_native_per_frame: null
+  reaction_frames: 2.0
+  softmax_temperature_frames: 1.0
+  grid_x: 25
+  grid_y: 17

@@ -19,6 +19,9 @@ dependencies = [
   "streamlit>=1.30.0",
 ]
 
+[project.optional-dependencies]
+xg = ["xgboost>=2.0", "scikit-learn>=1.3", "joblib>=1.3"]
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 

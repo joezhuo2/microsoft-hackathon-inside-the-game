@@ -29,6 +29,29 @@ python -m football_analytics.cli validate --input data/gfootball_results_games_0
 python -m football_analytics.cli summary --input data/gfootball_results_games_0-2.csv
 ```
 
+## Updated analytics and XGBoost
+
+The supplied `football_tracking_analytics_xgboost` implementation is integrated in
+`football_analytics.audited`. The existing `analyze` command and replay outputs retain
+their current behavior. The updated pipeline has different schemas and native-unit
+metrics; write its outputs to a separate directory:
+
+```bash
+python -m football_analytics.cli audited-analyze --input "data/gfootball_results_games_*.csv" --output output/audited --config config-audited.yaml
+python -m football_analytics.cli audited-validate --input data/
+python -m pip install -e ".[xg]"
+python -m football_analytics.cli xg-train --tracking "data/gfootball_results_games_*.csv" --events labelled_shots.csv --model models/xgboost_xg.joblib --config config-xg.yaml
+python -m football_analytics.cli xg-predict --tracking "data/gfootball_results_games_*.csv" --events shots.csv --model models/xgboost_xg.joblib --output output/shot_xg.csv --config config-xg.yaml
+```
+
+Use `config-audited.yaml` for the updated pipeline; `config.yaml` belongs to the
+existing replay pipeline. XGBoost is optional. Training requires independently
+labelled shots and goal outcomes; no trained model or new match data was supplied.
+Configure verified attacking directions and coordinate modes before extracting xG
+features. See [xG model documentation](docs/xg_model.md) for labels, configuration,
+evaluation, and model limitations. Imported synthetic fixtures live only under
+`tests/fixtures/audited`; the project match data is unchanged.
+
 ## Coordinates and units
 
 The default configuration enables conversion of the supplied centered horizontal coordinates to a 120 × 80 pitch:
