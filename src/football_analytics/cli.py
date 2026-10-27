@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import yaml
@@ -55,7 +56,13 @@ def run_analysis(input_path: str, output_dir: str = "output", config_path: str |
     return paths
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] in {"audited-analyze", "audited-validate", "audited-summary", "xg-train", "xg-predict"}:
+        from .audited.cli import main as audited_main
+
+        argv[0] = argv[0].removeprefix("audited-")
+        return audited_main(argv)
     parser = argparse.ArgumentParser(description="Football tracking analytics pipeline")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -70,7 +77,9 @@ def main() -> int:
     summary = subparsers.add_parser("summary", help="Print a short data summary")
     summary.add_argument("--input", required=True, help="Path to input tracking CSV")
 
-    args = parser.parse_args()
+    for command in ("audited-analyze", "audited-validate", "audited-summary", "xg-train", "xg-predict"):
+        subparsers.add_parser(command, help="Updated analytics; use this command with --help for options")
+    args = parser.parse_args(argv)
 
     if args.command == "validate":
         df = load_tracking_data(args.input)

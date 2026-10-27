@@ -1,0 +1,59 @@
+# xG model settings for the supplied 120 x 80 normalized-pitch convention.
+# Direction defaults below match the initial sample formation only. Confirm per-game
+# and per-half attacking directions before using on new matches or side changes.
+# +1 means the team attacks toward increasing X; -1 means decreasing X.
+pitch:
+  attacking_direction_by_team:
+    0: 1
+    1: -1
+
+xg:
+  pitch_length_m: 120.0
+  pitch_width_m: 80.0
+  goal_width_m: 7.32
+  goal_center_y_m: 40.0
+  penalty_area_depth_m: 16.5
+  penalty_area_width_m: 40.32
+  goal_area_depth_m: 5.5
+  goal_area_width_m: 18.32
+  penalty_spot_distance_m: 11.0
+
+  # auto converts coordinates if the input values still look like x=[-1,1], y=[-.42,.42].
+  # If a filtered tracking file happens to occupy only a small pitch region, set this
+  # explicitly to pitch_120x80 (already converted) or source_normalized (raw source).
+  coordinate_mode: auto
+  event_coordinate_mode: auto
+
+  # Prefer explicit event direction/target_goal_x when available. These mappings take
+  # precedence over the team-only map and allow direction changes by game segment.
+  attacking_direction_by_game_team: {}
+  attacking_direction_by_game_team_segment: {}
+  segment_column: period
+  allow_velocity_based_direction_inference: false
+
+  # Heuristic shot candidates are not training truth. Enable only after independent
+  # manual review and if you intentionally want to score candidate events.
+  allow_heuristic_shot_candidates: false
+  additional_shot_event_types: []
+  max_pre_shot_action_gap_frames: 100
+  velocity_lookback_frames: 1  # velocity from the prior frame, not post-release shot trajectory
+  lane_half_width_m: 1.5
+
+  # Z is not calibrated in the supplied data; keep disabled until mapped to metres.
+  use_ball_height: false
+  z_scale_to_m: null
+
+  test_size: 0.2
+  random_state: 42
+  calibration_method: sigmoid
+  calibration_min_games: 5
+  n_jobs: -1
+  xgb_params:
+    n_estimators: 500
+    max_depth: 4
+    learning_rate: 0.035
+    min_child_weight: 5
+    subsample: 0.85
+    colsample_bytree: 0.85
+    reg_lambda: 5.0
+    reg_alpha: 0.05
