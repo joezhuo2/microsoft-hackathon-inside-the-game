@@ -1,6 +1,28 @@
-# Football Tracking Analytics and Match Intelligence Engine
+<p align="center"><img src="assets/banner.jpg" alt="Money Makers" width="100%"></p>
 
-This project implements a minimal but production-oriented football tracking analytics pipeline for the CSV schema used in the provided dataset.
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white" alt="python 3.10+">
+  <img src="https://img.shields.io/badge/tests-pytest-0A9EDC?logo=pytest&logoColor=white" alt="tests: pytest">
+  <img src="https://img.shields.io/badge/overlay-Tauri%202-24C8DB?logo=tauri&logoColor=white" alt="overlay: Tauri 2">
+  <img src="https://img.shields.io/badge/xG-XGBoost%20(optional)-EC6B23" alt="xG: XGBoost optional">
+  <img src="https://img.shields.io/badge/data-synthetic-lightgrey" alt="data: synthetic">
+</p>
+
+<p align="center">
+  <a href="#screenshots">Screenshots</a> •
+  <a href="#setup">Setup</a> •
+  <a href="#run-the-pipeline">Pipeline</a> •
+  <a href="#updated-analytics-and-xgboost">Analytics and xG</a> •
+  <a href="#output-files">Output</a> •
+  <a href="#mcp-tool-server">MCP server</a> •
+  <a href="#live-overlay">Live overlay</a> •
+  <a href="#testing">Testing</a>
+</p>
+
+> A football tracking analytics pipeline and match intelligence engine. It turns
+> tracking CSVs into events, possession, player and team stats, and key moments,
+> then replays the match as a live overlay with AI analysis that every claim
+> must pass through a data gate. Built for the synthetic dataset in this repo.
 
 ![Full-screen match overlay at full time, showing the recap, pitch view, AI analysis and timeline](screenshots/Screenshot%202026-10-27%20205439.png)
 
