@@ -256,3 +256,4 @@ python -m pytest -q
 ```
 
 The tests cover schema loading, data validation, tracking features, possession inference, and event detection using both the supplied CSV and synthetic sequences.
+
