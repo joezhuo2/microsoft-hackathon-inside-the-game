@@ -94,7 +94,7 @@ The panel grows as the match is replayed, from 03:22 to 06:31:
 
 ### Player value
 
-Player value summary for Jalen Okafor, with match value, wage and the value-for-money verdict:
+Player value summary for Jalen Okafor with match value, wage and the value-for-money verdict:
 
 ![Player value panel for Jalen Okafor showing match value, wage and bargain verdict](screenshots/Screenshot%202026-10-27%20214549.png)
 
