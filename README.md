@@ -8,6 +8,23 @@
   <img src="https://img.shields.io/badge/data-synthetic-lightgrey" alt="data: synthetic">
 </p>
 
+> A football tracking analytics pipeline and match intelligence engine. It turns
+> tracking CSVs into events, possession, player and team stats, and key moments,
+> then replays the match as a live overlay with AI analysis that every claim
+> must pass through a data gate. Built for the synthetic dataset in this repo.
+
+![Full-screen match overlay at full time, showing the recap, pitch view, AI analysis and timeline](screenshots/Screenshot%202026-10-27%20205439.png)
+
+## About
+
+The pipeline reads the tracking CSVs in `data/`, infers ball control and
+candidate events, and writes per-frame metrics, possession chains, player and
+team stats, and rule-based key moments to `output/`. An optional audited
+pipeline adds native-unit metrics and XGBoost xG. The live overlay replays the
+match over server-sent events, and an MCP server exposes the outputs to agents
+as read-only tools. The data and clubs are synthetic, and the xG model is
+untrained until you supply labelled shots.
+
 <p align="center">
   <a href="#screenshots">Screenshots</a> •
   <a href="#setup">Setup</a> •
@@ -18,13 +35,6 @@
   <a href="#live-overlay">Live overlay</a> •
   <a href="#testing">Testing</a>
 </p>
-
-> A football tracking analytics pipeline and match intelligence engine. It turns
-> tracking CSVs into events, possession, player and team stats, and key moments,
-> then replays the match as a live overlay with AI analysis that every claim
-> must pass through a data gate. Built for the synthetic dataset in this repo.
-
-![Full-screen match overlay at full time, showing the recap, pitch view, AI analysis and timeline](screenshots/Screenshot%202026-10-27%20205439.png)
 
 ## Screenshots
 
