@@ -1,5 +1,5 @@
 <p align="center"><img src="assets/banner.jpg" alt="Money Makers" width="100%"></p>
-
+ 
 <p align="center">
   <img src="https://img.shields.io/badge/python-3.10%2B-blue?logo=python&logoColor=white" alt="python 3.10+">
   <img src="https://img.shields.io/badge/tests-pytest-0A9EDC?logo=pytest&logoColor=white" alt="tests: pytest">
