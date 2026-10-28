@@ -8,6 +8,17 @@
   <img src="https://img.shields.io/badge/data-synthetic-lightgrey" alt="data: synthetic">
 </p>
 
+<p align="center">
+  <a href="#screenshots">Screenshots</a> •
+  <a href="#setup">Setup</a> •
+  <a href="#run-the-pipeline">Pipeline</a> •
+  <a href="#updated-analytics-and-xgboost">Analytics and xG</a> •
+  <a href="#output-files">Output</a> •
+  <a href="#mcp-tool-server">MCP server</a> •
+  <a href="#live-overlay">Live overlay</a> •
+  <a href="#testing">Testing</a>
+</p>
+
 > A football tracking analytics pipeline and match intelligence engine. It turns
 > tracking CSVs into events, possession, player and team stats, and key moments,
 > then replays the match as a live overlay with AI analysis that every claim
@@ -24,17 +35,6 @@ pipeline adds native-unit metrics and XGBoost xG. The live overlay replays the
 match over server-sent events, and an MCP server exposes the outputs to agents
 as read-only tools. The data and clubs are synthetic, and the xG model is
 untrained until you supply labelled shots.
-
-<p align="center">
-  <a href="#screenshots">Screenshots</a> •
-  <a href="#setup">Setup</a> •
-  <a href="#run-the-pipeline">Pipeline</a> •
-  <a href="#updated-analytics-and-xgboost">Analytics and xG</a> •
-  <a href="#output-files">Output</a> •
-  <a href="#mcp-tool-server">MCP server</a> •
-  <a href="#live-overlay">Live overlay</a> •
-  <a href="#testing">Testing</a>
-</p>
 
 ## Screenshots
 
