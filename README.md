@@ -2,6 +2,74 @@
 
 This project implements a minimal but production-oriented football tracking analytics pipeline for the CSV schema used in the provided dataset.
 
+![Full-screen match overlay at full time, showing the recap, pitch view, AI analysis and timeline](screenshots/Screenshot%202026-10-27%20205439.png)
+
+## Screenshots
+
+### Full-screen overlay
+
+![Full-screen match overlay at 33:50, showing the goal card, stats bar and timeline](screenshots/Screenshot%202026-10-27%20214728.png)
+
+### Overlay components
+
+Scoreboard with clock, control label and synthetic-data badge:
+
+![Scoreboard showing KVF 1-0 PSU at 13:19](screenshots/Screenshot%202026-10-27%20214609.png)
+
+Goal moment card with shot speed and confidence:
+
+![Goal card for Kestrel Vale FC at 13:19](screenshots/Screenshot%202026-10-27%20214613.png)
+
+Pitch view with the tracked players and the ball:
+
+![Pitch view with KVF, PSU, ball and the selected player marked](screenshots/Screenshot%202026-10-27%20214616.png)
+
+Value-swing card for a player's goal contribution:
+
+![Value card for Daniel Moreau adding value with a goal](screenshots/Screenshot%202026-10-27%20214621.png)
+
+Match stats bar (possession, shots, passes, pass accuracy, ball wins, sprints):
+
+![Match stats bar with possession, shots, passes, pass accuracy, ball wins and sprints](screenshots/Screenshot%202026-10-27%20214636.png)
+
+Timeline with turning points, the selected player and supporting moments:
+
+![Timeline bar with turning point, your player and supporting markers](screenshots/Screenshot%202026-10-27%20214641.png)
+
+AI analysis feed and recent cues:
+
+![AI analysis panel with momentum shift and recent cues](screenshots/Screenshot%202026-10-27%20214643.png)
+
+### Match centre
+
+Match centre with the game, language, club, player and the five "how much I care" dials:
+
+![Match centre panel with game, language, club, player and interest dials](screenshots/Screenshot%202026-10-27%20214519.png)
+
+Action buttons for Match centre, Ask the match and Player value:
+
+![Match centre, Ask the match and Player value buttons](screenshots/Screenshot%202026-10-27%20214604.png)
+
+### Ask the match
+
+The panel grows as the match is replayed, from 03:22 to 06:31:
+
+![Ask the match panel at 03:22](screenshots/Screenshot%202026-10-27%20214530.png)
+
+![Ask the match panel at 04:41](screenshots/Screenshot%202026-10-27%20214535.png)
+
+![Ask the match panel at 06:31](screenshots/Screenshot%202026-10-27%20214542.png)
+
+### Player value
+
+Player value summary for Jalen Okafor, with match value, wage and the value-for-money verdict:
+
+![Player value panel for Jalen Okafor showing match value, wage and bargain verdict](screenshots/Screenshot%202026-10-27%20214549.png)
+
+Where the value came from, with the verdict buttons:
+
+![Player value breakdown by action with verdict options](screenshots/Screenshot%202026-10-27%20214559.png)
+
 ## Setup
 
 ```bash
