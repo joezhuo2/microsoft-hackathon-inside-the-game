@@ -151,6 +151,31 @@ One row per game/team group.
 | `distance_total` | Sum of player-row `distance_travelled`; it sums player movement, not ball distance. | Configured horizontal coordinate units |
 | `player_count` | Number of distinct player IDs observed for the team. | Count |
 
+## `player_xg_value.csv`
+
+One row per game, team, and player represented in the valuation output.
+
+| Field | Meaning | Type / units |
+| --- | --- | --- |
+| `GAME_ID` | Game identifier used by the analysis pipeline. | ID |
+| `INTERNAL_GAME_ID` | Internal game identifier assigned during processing. | ID |
+| `SOURCE_FILE` | Input tracking CSV associated with the game. | Filename |
+| `TEAM_ID` | Player's team identifier. | ID |
+| `PLAYER_ID` | Player identifier. | ID |
+| `offensive_xg_value` | Sum of the player's allocated offensive xG credits. Credits use a weighted-chain fallback, not player-level Shapley values. | xG |
+| `defensive_xg_prevented` | Sum of the player's estimated defensive threat suppression from xG-model counterfactuals. | xG |
+| `defensive_xg_value` | Duplicate of `defensive_xg_prevented` in the current output. | xG |
+| `net_xg_value` | Offensive xG value plus defensive xG prevented, when both are available. | xG |
+| `shots_involved` | Number of distinct shots for which the player received an offensive attribution. | Count |
+| `defensive_shot_situations` | Number of distinct shots for which the player received a positive defensive attribution. | Count |
+| `defensive_attribution_coverage` | Fraction of the player's defensive shot situations with an available counterfactual xG prediction; blank when the player has no defensive evaluations. | Ratio from 0 to 1 |
+| `attribution_method` | Semicolon-separated attribution methods present for the player: `weighted_chain_fallback`, `xg_counterfactual_marginal`, and/or `xg_counterfactual_unavailable`. | String |
+| `offensive_unavailable_shots` | Number of shots for which offensive attribution was unavailable for this player. | Count |
+
+Offensive fallback credits use relative weights of 2 for the shooter, 2 for the latest identified preceding passer, and 1 for each other identified chain participant. Defensive values estimate threat suppression by recomputing the existing xG model after removing nearby defenders; they are not Shapley values or proof of causal responsibility. Both methods are experimental and should not be interpreted as validated player-quality ratings.
+
+Blank values indicate unavailable or incomplete attribution; they are not zero. `net_xg_value` is blank when a required component is unavailable. `defensive_xg_value` is retained as a compatibility alias; `defensive_xg_prevented` is the canonical field.
+
 ## `quality_report.json`
 
 The top-level report contains aggregate quality fields, a nested validation report, and calibration status.
